@@ -2,96 +2,88 @@
 
 namespace App;
 
-use Illuminate\Notifications\Notifiable;
-use Illuminate\Foundation\Auth\User as Authenticatable;
+use App\Models\User as ModelsUser;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
-class User extends Authenticatable
+/**
+ * Clase wrapper para compatibilidad con código antiguo
+ * Esta clase hereda todas las propiedades y métodos de Models\User
+ * y agrega los métodos específicos necesarios para la compatibilidad
+ */
+class User extends ModelsUser
 {
-    use Notifiable;
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array
-     */
-    protected $fillable = [
-        'name', 'email', 'password', 'level', 'role', 'business_name', 'tax_id', 
-        'phone', 'address', 'city', 'sector', 'province', 'nit', 'last_name',
-        'lat', 'lng', 'status', 'branch_id', 'gender', 'house_type', 'civil_status',
-        'spouse_name', 'spouse_job', 'spouse_phone', 'business_type', 'business_time',
-        'sales_good', 'sales_bad', 'weekly_average', 'net_profit'
-    ];
-
-    /**
-     * The attributes that should be hidden for arrays.
-     *
-     * @var array
-     */
-    protected $hidden = [
-        'password', 'remember_token',
-    ];
-    
-    /**
-     * Verifica si se debe omitir la verificación de permisos
-     * para el usuario actual
-     */
-    public function shouldBypassPermissionChecks()
-    {
-        return isset($this->bypassAuthChecks) && $this->bypassAuthChecks === true;
-    }
-    
-    /**
-     * Comprueba si el usuario es administrador
-     */
-    public function isAdmin()
-    {
-        if ($this->shouldBypassPermissionChecks()) {
-            return true;
-        }
-        return $this->level === 'admin' || $this->role === 'admin';
-    }
-    
-    /**
-     * Comprueba si el usuario es superadmin
-     */
-    public function isSuperAdmin()
-    {
-        if ($this->shouldBypassPermissionChecks()) {
-            return true;
-        }
-        return $this->level === 'superadmin' || $this->role === 'superadmin';
-    }
-    
-    /**
-     * Determina si el usuario tiene un rol específico
-     */
-    public function hasRole($role)
-    {
-        if ($this->shouldBypassPermissionChecks()) {
-            return true;
-        }
-        return $this->role === $role;
-    }
-    
     /**
      * Verifica si el usuario tiene acceso a un módulo específico
+     * Versión específica para compatibilidad con código antiguo
      */
     public function hasModuleAccess($module)
     {
+        // Si hay bypass de permisos, permitir acceso
         if ($this->shouldBypassPermissionChecks()) {
             return true;
         }
         
-        // Delegar a la implementación del rol si existe
-        if (method_exists($this, 'userRole')) {
-            $role = $this->userRole;
-            if ($role && method_exists($role, 'hasModuleAccess')) {
-                return $role->hasModuleAccess($module);
-            }
+        // Si es superadmin o admin, siempre tiene acceso a todos los módulos
+        if ($this->isSuperAdmin() || $this->isAdmin()) {
+            return true;
         }
         
-        // Por defecto, admin y superadmin tienen acceso a todo
-        return $this->isAdmin() || $this->isSuperAdmin();
+        // Para el módulo de clientes, todos tienen acceso excepto usuarios regulares
+        if ($module === 'clientes' && $this->level !== 'user' && $this->role !== 'user') {
+            return true;
+        }
+        
+        // Para el módulo de créditos, todos tienen acceso excepto usuarios regulares
+        if ($module === 'creditos' && $this->level !== 'user' && $this->role !== 'user') {
+            return true;
+        }
+        
+        try {
+            // Intentar obtener el rol del usuario desde la tabla roles
+            $roleRecord = null;
+            
+            // Primero buscar por role
+            if (!empty($this->role)) {
+                $roleRecord = DB::table('roles')->where('slug', $this->role)->first();
+            }
+            
+            // Si no se encontró, buscar por level
+            if (!$roleRecord && !empty($this->level)) {
+                $roleRecord = DB::table('roles')->where('slug', $this->level)->first();
+            }
+            
+            // Si encontramos un rol válido, verificar permisos
+            if ($roleRecord) {
+                // Verificar permiso específico para el módulo
+                $hasAccess = DB::table('role_module_permissions')
+                    ->where('role_id', $roleRecord->id)
+                    ->where('module', $module)
+                    ->where('has_access', true)
+                    ->exists();
+                    
+                if ($hasAccess) {
+                    return true;
+                }
+                
+                // Si no tiene permiso específico, verificar si tiene permiso de administración
+                $adminAccess = DB::table('role_module_permissions')
+                    ->where('role_id', $roleRecord->id)
+                    ->where('module', 'admin')
+                    ->where('has_access', true)
+                    ->exists();
+                    
+                if ($adminAccess) {
+                    return true;
+                }
+            }
+        } catch (\Exception $e) {
+            // Si hay un error, registrarlo pero no bloquear al usuario
+            Log::error("Error verificando permisos para el usuario ID {$this->id}: " . $e->getMessage());
+        }
+        
+        // Por defecto, denegar acceso
+        return false;
     }
     
     /**
@@ -105,7 +97,7 @@ class User extends Authenticatable
         }
         
         // Si no, usar level
-        return $this->attributes['level'] ?? null;
+        return isset($this->attributes['level']) ? $this->attributes['level'] : null;
     }
     
     /**

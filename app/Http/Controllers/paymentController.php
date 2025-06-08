@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class paymentController extends Controller
+class PaymentController extends Controller
 {
     /**
      * Display a listing of the resource.

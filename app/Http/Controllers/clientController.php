@@ -2,267 +2,701 @@
 
 namespace App\Http\Controllers;
 
-use App\db_agent_has_user;
-use App\db_countries;
-use App\db_credit;
-use App\db_supervisor_has_agent;
-use App\db_wallet;
+use App\Models\Client;
+use App\Models\ClientRecord;
+use App\Models\Credit;
+use App\Models\LoanApplication;
 use App\User;
-use App\Models\Branch;
+use App\Models\CreditType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ClientController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
+     * Constructor del controlador
      */
-    public function index()
+    public function __construct()
     {
-        // Obtener todos los clientes
-        $clients = User::where('level', 'client')->orderBy('created_at', 'desc')->paginate(10);
-        
-        return view('client.index', ['clients' => $clients]);
+        $this->middleware('auth');
     }
 
     /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
+     * Mostrar listado de clientes
+     */
+    public function index(Request $request)
+    {
+        // Verificar permisos de acceso
+        if (!auth()->user()->hasModuleAccess('clientes')) {
+            return redirect()->route('home')->with('error', 'No tienes permisos para acceder a este módulo');
+        }
+        
+        // Parámetros de filtrado
+        $search = $request->input('search');
+        $status = $request->input('status', 'active');
+        
+        // Consulta base
+        $query = Client::query();
+        
+        // Aplicar filtros
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('nit', 'like', "%{$search}%")
+                  ->orWhere('dui', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('business_name', 'like', "%{$search}%");
+            });
+        }
+        
+        if ($status === 'active') {
+            $query->where('is_active', true);
+        } elseif ($status === 'inactive') {
+            $query->where('is_active', false);
+        } elseif ($status === 'blacklisted') {
+            $query->where('blacklisted', true);
+        }
+        
+        // Si es un colector, mostrar solo sus clientes asignados
+        if (auth()->user()->isColector()) {
+            $query->where('assigned_agent_id', auth()->id());
+        }
+        
+        // Ordenar y paginar resultados
+        $clients = $query->orderBy('name')
+                         ->orderBy('last_name')
+                         ->paginate(10)
+                         ->appends($request->query());
+        
+        return view('clients.index', compact('clients', 'search', 'status'));
+    }
+
+    /**
+     * Mostrar formulario para crear un nuevo cliente
      */
     public function create()
     {
         try {
-            // Debug - Mostrar que estamos entrando al método
-            echo "<!-- DEBUG: Entrando al método create de ClientController -->";
+            // Obtener tipos de cliente
+            $clientTypes = DB::table('client_types')
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get();
             
-            // Versión simplificada para diagnóstico
-            return view('client.create', [
-                'branches' => Branch::all(),
-                'countries' => db_countries::all(),
-            ]);
+            // Obtener rutas
+            $routes = DB::table('routes')
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get();
+            
+            // Obtener agentes (colectores)
+            $agents = DB::table('users')
+                ->select('id', 'name')
+                ->where(function($query) {
+                    $query->where('role', 'colector')
+                          ->orWhere('level', 'colector');
+                })
+                ->orderBy('name')
+                ->get();
+            
+            // Obtener tipos de crédito
+            $creditTypes = CreditType::where('is_active', true)
+                ->orderBy('name')
+                ->get();
+            
+            // Configuración de préstamos desde system_preferences
+            $systemPreferences = DB::table('system_preferences')->first();
+            
+            $loanConfig = [
+                'min_amount' => $systemPreferences->min_loan_amount ?? 100,
+                'max_amount' => $systemPreferences->max_loan_amount ?? 5000,
+                'interest_rates' => [10, 15, 20], // Valores por defecto
+                'payment_frequencies' => [
+                    'daily' => 'Diario',
+                    'weekly' => 'Semanal',
+                    'biweekly' => 'Quincenal',
+                    'monthly' => 'Mensual'
+                ]
+            ];
+            
+            return view('clients.create', compact('clientTypes', 'routes', 'agents', 'creditTypes', 'loanConfig'));
             
         } catch (\Exception $e) {
-            // Log el error y mostrar en HTML para depuración
-            echo "<!-- ERROR: " . $e->getMessage() . " -->";
-            echo "<!-- En archivo: " . $e->getFile() . " línea: " . $e->getLine() . " -->";
-            
-            // Log detallado
-            \Log::error('Error al cargar la vista de creación de cliente: ' . $e->getMessage());
-            \Log::error('Archivo: ' . $e->getFile() . ' en línea ' . $e->getLine());
-            \Log::error('Traza: ' . $e->getTraceAsString());
-            
-            // Retornar error como HTML simple para diagnóstico
-            return response()->make(
-                '<html><body><h1>Error</h1><p>' . $e->getMessage() . '</p><p>Archivo: ' . 
-                $e->getFile() . ' línea: ' . $e->getLine() . '</p></body></html>', 
-                500, ['Content-Type' => 'text/html']
-            );
+            \Log::error("Error en create: " . $e->getMessage());
+            \Log::error("Stack trace: " . $e->getTraceAsString());
+            return redirect()->back()
+                ->with('error', 'Error al cargar el formulario: ' . $e->getMessage());
         }
     }
 
     /**
-     * Store a newly created resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @return \Illuminate\Http\Response
+     * Almacenar un nuevo cliente
      */
     public function store(Request $request)
     {
-        // Validar datos del formulario
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'nit_number' => 'required|string|max:30|unique:users,nit',
-            'address' => 'required|string',
-            'phone' => 'required|string|max:20',
-        ]);
-
         try {
-            // Crear nuevo usuario/cliente
-            $user = new User();
-            $user->name = $request->name;
-            $user->nit = $request->nit_number;
-            $user->address = $request->address;
-            $user->phone = $request->phone;
-            $user->level = 'client';
-            $user->status = 'good';
+            // Log para diagnóstico
+            Log::info('Request completo:', [
+                'all' => $request->all(),
+                'input' => $request->input(),
+                'post' => $_POST,
+                'files' => $request->allFiles()
+            ]);
             
-            // Campos opcionales
-            if ($request->has('branch_id') && !empty($request->branch_id)) $user->branch_id = $request->branch_id;
-            if ($request->has('email') && !empty($request->email)) $user->email = $request->email;
-            if ($request->has('province') && !empty($request->province)) $user->province = $request->province;
-            if ($request->has('city') && !empty($request->city)) $user->city = $request->city;
-            if ($request->has('last_name') && !empty($request->last_name)) $user->last_name = $request->last_name;
+            // Validar datos
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'last_name' => 'nullable|string|max:255',
+                'email' => 'nullable|email|max:255|unique:clients',
+                'phone' => 'required|string|max:20',
+                'nit' => 'required|string|max:20',
+                'dui' => 'nullable|string|max:20',
+                'address' => 'required|string',
+                'city' => 'nullable|string|max:100',
+                'state' => 'nullable|string|max:100',
+                'country' => 'nullable|string|max:100',
+                'province' => 'nullable|string|max:100',
+                'birthdate' => 'nullable|date',
+                'gender' => 'nullable|in:M,F',
+                'civil_status' => 'nullable|in:soltero,casado,divorciado,viudo,union_libre',
+                'house_type' => 'nullable|in:propia,alquilada,familiar',
+                'spouse_name' => 'nullable|required_if:civil_status,casado|string|max:255',
+                'spouse_job' => 'nullable|string|max:255',
+                'spouse_phone' => 'nullable|string|max:20',
+                'business_name' => 'nullable|string|max:255',
+                'business_type' => 'nullable|string|max:255',
+                'business_time' => 'nullable|integer',
+                'business_sector' => 'nullable|string|max:255',
+                'economic_activity' => 'nullable|string|max:255',
+                'annual_revenue' => 'nullable|numeric',
+                'employee_count' => 'nullable|integer',
+                'founding_date' => 'nullable|date',
+                'sales_good' => 'nullable|numeric',
+                'sales_bad' => 'nullable|numeric',
+                'weekly_average' => 'nullable|numeric',
+                'net_profit' => 'nullable|numeric',
+                'route_id' => 'nullable|exists:routes,id',
+                'notes' => 'nullable|string',
+                // Campos de la solicitud de crédito
+                'credit_type_id' => 'required_with:loan_amount|exists:credit_types,id',
+                'loan_amount' => 'required_with:credit_type_id|numeric|min:0',
+                'term_months' => 'required_with:loan_amount|integer|min:1',
+                'payment_frequency' => 'required_with:loan_amount|in:daily,weekly,biweekly,monthly'
+            ]);
             
-            // Datos adicionales si se proporcionan
-            if ($request->has('gender') && !empty($request->gender)) $user->gender = $request->gender;
-            if ($request->has('house') && !empty($request->house)) $user->house_type = $request->house;
-            if ($request->has('civil_status') && !empty($request->civil_status)) $user->civil_status = $request->civil_status;
-            if ($request->has('spouse_name') && !empty($request->spouse_name)) $user->spouse_name = $request->spouse_name;
-            if ($request->has('spouse_job') && !empty($request->spouse_job)) $user->spouse_job = $request->spouse_job;
-            if ($request->has('spouse_phone') && !empty($request->spouse_phone)) $user->spouse_phone = $request->spouse_phone;
+            // Log datos validados
+            Log::info('Datos validados:', $validated);
             
-            // Datos del negocio
-            if ($request->has('business_type') && !empty($request->business_type)) $user->business_type = $request->business_type;
-            if ($request->has('business_time') && !empty($request->business_time)) $user->business_time = $request->business_time;
-            if ($request->has('sales_good') && !empty($request->sales_good)) $user->sales_good = $request->sales_good;
-            if ($request->has('sales_bad') && !empty($request->sales_bad)) $user->sales_bad = $request->sales_bad;
-            if ($request->has('weekly_average') && !empty($request->weekly_average)) $user->weekly_average = $request->weekly_average;
-            if ($request->has('net_profit') && !empty($request->net_profit)) $user->net_profit = $request->net_profit;
-            
-            // Coordenadas si están disponibles
-            if ($request->has('lat') && !empty($request->lat)) $user->lat = $request->lat;
-            if ($request->has('lng') && !empty($request->lng)) $user->lng = $request->lng;
-            
-            $user->save();
-            
-            // Si el cliente fue creado exitosamente, y si hay información de préstamo, crear crédito
-            if ($request->has('requested_amount') && !empty($request->requested_amount) && 
-                $request->has('approved_amount') && !empty($request->approved_amount) &&
-                $request->has('interest_rate') && !empty($request->interest_rate)) {
+            // Validar límites de monto si se proporcionó un monto
+            if ($request->filled('loan_amount') && $request->filled('credit_type_id')) {
+                $creditType = CreditType::findOrFail($request->credit_type_id);
                 
-                // Crear el crédito asociado al cliente
-                $credit = new \App\db_credit();
-                $credit->id_user = $user->id;
-                $credit->id_agent = Auth::id(); // El usuario actual como agente
-                $credit->credit_number = 'CR-' . time(); // Generar número de crédito único
-                $credit->utility_rate = $request->interest_rate;
-                $credit->amount_requested = $request->requested_amount;
-                $credit->amount_approved = $request->approved_amount;
-                $credit->status = 'inprogress';
+                if ($request->loan_amount < $creditType->min_amount || 
+                    $request->loan_amount > $creditType->max_amount) {
+                    return back()
+                        ->withInput()
+                        ->withErrors(['loan_amount' => 'El monto debe estar entre $' . 
+                            number_format($creditType->min_amount, 2) . ' y $' . 
+                            number_format($creditType->max_amount, 2)]);
+                }
                 
-                if ($request->has('first_payment')) $credit->first_pay = $request->first_payment;
-                if ($request->has('payment_type')) $credit->payment_type = $request->payment_type;
-                if ($request->has('term')) $credit->payment_number = $request->term;
-                
-                $credit->save();
-                
-                // Si hay una ruta seleccionada, asignar el crédito a esa ruta
-                if ($request->has('route') && !empty($request->route)) {
-                    $routeCredit = new \App\RouteCredit();
-                    $routeCredit->route_id = $request->route;
-                    $routeCredit->credit_id = $credit->id;
-                    $routeCredit->save();
+                if ($request->term_months < $creditType->min_term_months || 
+                    $request->term_months > $creditType->max_term_months) {
+                    return back()
+                        ->withInput()
+                        ->withErrors(['term_months' => 'El plazo debe estar entre ' . 
+                            $creditType->min_term_months . ' y ' . 
+                            $creditType->max_term_months . ' meses']);
                 }
             }
             
-            // Si el cliente fue creado exitosamente, redirigir con mensaje de éxito
-            return redirect()->route('client.index')->with('success', 'Cliente creado correctamente');
+            // Iniciar transacción
+            DB::beginTransaction();
             
+            try {
+                // Crear el cliente
+                $client = new Client();
+                $client->fill($validated);
+                
+                // Asignaciones y estado
+                $client->is_active = true;
+                $client->created_by = Auth::id();
+                $client->credit_score = 70; // Score inicial por defecto
+                $client->status = 'active';
+                
+                // Log para depuración
+                Log::info('Datos del cliente antes de guardar:', $client->toArray());
+                
+                // Guardar el cliente
+                $client->save();
+                
+                // Log para depuración
+                Log::info('Cliente guardado con ID: ' . $client->id);
+                
+                // Crear registro inicial en el expediente
+                $client->addRecord(
+                    ClientRecord::TYPE_NOTE,
+                    'Cliente creado en el sistema.',
+                    ClientRecord::STATUS_ACTIVE
+                );
+                
+                // Si se proporcionó un monto, crear la solicitud de crédito
+                if ($request->filled('loan_amount')) {
+                    $application = new LoanApplication();
+                    $application->client_id = $client->id;
+                    $application->credit_type_id = $request->input('credit_type_id');
+                    $application->amount_requested = $request->input('loan_amount');
+                    $application->term_months = $request->input('term_months');
+                    $application->payment_frequency = $request->input('payment_frequency');
+                    $application->status = 'pending';
+                    $application->notes = $request->input('notes');
+                    $application->created_by = Auth::id();
+                    
+                    // Log para depuración
+                    Log::info('Datos de la solicitud antes de guardar:', $application->toArray());
+                    
+                    $application->save();
+                    
+                    // Log para depuración
+                    Log::info('Solicitud guardada con ID: ' . $application->id);
+                    
+                    // Registrar la solicitud en el expediente
+                    $client->addRecord(
+                        ClientRecord::TYPE_CREDIT,
+                        "Solicitud de crédito creada por $" . number_format($request->loan_amount, 2),
+                        ClientRecord::STATUS_PENDING
+                    );
+                }
+                
+                // Confirmar transacción
+                DB::commit();
+                
+                return redirect()->route('clients.show', ['client' => $client->id])
+                    ->with('success', 'Cliente registrado correctamente. ' . 
+                        ($request->filled('loan_amount') ? 'Se ha creado una solicitud de crédito.' : ''));
+                    
+            } catch (\Exception $e) {
+                // Revertir transacción en caso de error
+                DB::rollBack();
+                Log::error("Error al crear cliente: " . $e->getMessage());
+                Log::error("Stack trace: " . $e->getTraceAsString());
+                
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Error al crear el cliente: ' . $e->getMessage());
+            }
+                
         } catch (\Exception $e) {
-            // Si ocurre un error, redirigir con mensaje de error
-            return redirect()->back()->with('error', 'Error al crear cliente: ' . $e->getMessage())->withInput();
+            // Log detallado del error
+            Log::error("Error al crear cliente: " . $e->getMessage());
+            Log::error("Archivo: " . $e->getFile() . " Línea: " . $e->getLine());
+            Log::error("Stack trace: " . $e->getTraceAsString());
+            
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['error' => 'Error al crear el cliente: ' . $e->getMessage()]);
         }
     }
 
     /**
-     * Display the specified resource.
-     *
-     * @param int $id
-     * @return \Illuminate\Http\Response
+     * Mostrar información de un cliente
      */
     public function show($id)
     {
-        $data = db_agent_has_user::where('agent_has_client.id_wallet', $id)
-            ->join('users', 'agent_has_client.id_client', '=', 'users.id')
-            ->join('credit', 'users.id', '=', 'credit.id_user')
-            ->select(
-                'users.name',
-                'users.last_name',
-                'users.province',
-                'users.status',
-                'users.id as id_user',
-                DB::raw('COUNT(*) as total_credit')
-            )
-            ->groupBy('users.id')
-            ->get();
-
-        foreach ($data as $datum) {
-            $datum->credit_inprogress = db_credit::where('status', 'inprogress')->where('id_user', $datum->id_user)->count();
-            $datum->credit_close = db_credit::where('status', 'close')->where('id_user', $datum->id_user)->count();
+        // Verificar permisos
+        if (!auth()->user()->hasModuleAccess('clientes')) {
+            return redirect()->route('home')->with('error', 'No tienes permisos para ver clientes');
         }
-        $data = array(
-            'clients' => $data
-        );
-
-        return view('supervisor_client.index', $data);
+        
+        // Buscar el cliente
+        $client = Client::findOrFail($id);
+        
+        // Cargar relaciones
+        $client->load('records', 'assignedAgent', 'createdBy');
+        
+        // Obtener créditos del cliente
+        $credits = Credit::where('client_id', $client->id)
+                        ->orderBy('created_at', 'desc')
+                        ->get();
+        
+        // Calcular puntaje de crédito
+        $creditScore = $client->credit_score ?? $client->calculateCreditScore();
+        
+        // Verificar elegibilidad para nuevo crédito
+        $isEligible = $client->isEligibleForNewCredit();
+        
+        return view('clients.show', compact(
+            'client', 
+            'credits', 
+            'creditScore',
+            'isEligible'
+        ));
     }
 
     /**
-     * Show the form for editing the specified resource.
-     *
-     * @param int $id
-     * @return \Illuminate\Http\Response
+     * Mostrar formulario para editar un cliente
      */
     public function edit($id)
     {
-        $data = User::find($id);
-        $data = array(
-            'user' => $data
-        );
-        return view('supervisor_client.unique', $data);
+        // Verificar permisos
+        if (!auth()->user()->hasModuleAccess('clientes')) {
+            return redirect()->route('home')->with('error', 'No tienes permisos para editar clientes');
+        }
+        
+        try {
+            // Buscar el cliente
+            $client = Client::findOrFail($id);
+            
+            // Obtener tipos de cliente
+            $clientTypes = DB::table('client_types')
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get();
+            
+            // Obtener rutas
+            $routes = DB::table('routes')
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get();
+            
+            // Obtener agentes (colectores)
+            $agents = DB::table('users')
+                ->select('id', 'name')
+                ->where(function($query) {
+                    $query->where('role', 'colector')
+                          ->orWhere('level', 'colector');
+                })
+                ->orderBy('name')
+                ->get();
+            
+            // Obtener tipos de crédito
+            $creditTypes = CreditType::where('is_active', true)
+                ->orderBy('name')
+                ->get();
+            
+            // Configuración de préstamos desde system_preferences
+            $systemPreferences = DB::table('system_preferences')->first();
+            
+            $loanConfig = [
+                'min_amount' => $systemPreferences->min_loan_amount ?? 100,
+                'max_amount' => $systemPreferences->max_loan_amount ?? 5000,
+                'interest_rates' => [10, 15, 20], // Valores por defecto
+                'payment_frequencies' => [
+                    'daily' => 'Diario',
+                    'weekly' => 'Semanal',
+                    'biweekly' => 'Quincenal',
+                    'monthly' => 'Mensual'
+                ]
+            ];
+            
+            return view('clients.edit', compact(
+                'client',
+                'clientTypes',
+                'routes',
+                'agents',
+                'creditTypes',
+                'loanConfig'
+            ));
+            
+        } catch (\Exception $e) {
+            \Log::error("Error en edit: " . $e->getMessage());
+            \Log::error("Stack trace: " . $e->getTraceAsString());
+            return redirect()->back()
+                ->with('error', 'Error al cargar el formulario: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Update the specified resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param int $id
-     * @return \Illuminate\Http\Response
+     * Actualizar un cliente existente
      */
     public function update(Request $request, $id)
     {
-        $name = $request->name;
-        $last_name = $request->last_name;
-        $nit = $request->nit_number;
-        $address = $request->address;
-        $province = $request->province;
-        $phone = $request->phone;
-        $status = $request->status;
-
-        $values = array(
-            'name' => $name,
-            'last_name' => $last_name,
-            'nit' => $nit,
-            'address' => $address,
-            'province' => $province,
-            'phone' => $phone,
-            'status' => $status
-        );
-
-        User::where('id', $id)->update($values);
-        if (db_agent_has_user::where('id_client', $id)->exists()) {
-            $wallet = db_agent_has_user::where('id_client', $id)->first();
-            return redirect('supervisor/client/' . $wallet->id_wallet);
-        } else {
-            return redirect('supervisor/client/');
+        // Verificar permisos
+        if (!auth()->user()->hasModuleAccess('clientes')) {
+            return redirect()->route('home')->with('error', 'No tienes permisos para editar clientes');
         }
-
+        
+        // Buscar el cliente
+        $client = Client::findOrFail($id);
+        
+        try {
+            // Validar datos
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'last_name' => 'nullable|string|max:255',
+                'email' => 'nullable|email|max:255|unique:clients,email,' . $id,
+                'phone' => 'required|string|max:20',
+                'nit' => 'required|string|max:20',
+                'dui' => 'nullable|string|max:20',
+                'address' => 'required|string',
+                'city' => 'nullable|string|max:100',
+                'state' => 'nullable|string|max:100',
+                'country' => 'nullable|string|max:100',
+                'province' => 'nullable|string|max:100',
+                'birthdate' => 'nullable|date',
+                'gender' => 'nullable|in:M,F',
+                'civil_status' => 'nullable|in:soltero,casado,divorciado,viudo,union_libre',
+                'house_type' => 'nullable|in:propia,alquilada,familiar',
+                'spouse_name' => 'nullable|required_if:civil_status,casado|string|max:255',
+                'spouse_job' => 'nullable|string|max:255',
+                'spouse_phone' => 'nullable|string|max:20',
+                'business_name' => 'nullable|string|max:255',
+                'business_type' => 'nullable|string|max:255',
+                'business_time' => 'nullable|integer',
+                'business_sector' => 'nullable|string|max:255',
+                'economic_activity' => 'nullable|string|max:255',
+                'annual_revenue' => 'nullable|numeric',
+                'employee_count' => 'nullable|integer',
+                'founding_date' => 'nullable|date',
+                'sales_good' => 'nullable|numeric',
+                'sales_bad' => 'nullable|numeric',
+                'weekly_average' => 'nullable|numeric',
+                'net_profit' => 'nullable|numeric',
+                'route_id' => 'nullable|exists:routes,id',
+                'notes' => 'nullable|string'
+            ]);
+            
+            // Iniciar transacción
+            DB::beginTransaction();
+            
+            // Guardar datos anteriores para registro de cambios
+            $oldData = $client->getAttributes();
+            
+            // Actualizar el cliente
+            $client->fill($validated);
+            $client->updated_by = auth()->id();
+            $client->save();
+            
+            // Registrar cambios significativos
+            $this->logSignificantChanges($client, $oldData);
+            
+            // Confirmar transacción
+            DB::commit();
+            
+            return redirect()->route('clients.show', ['client' => $client->id])
+                ->with('success', 'Cliente actualizado correctamente');
+                
+        } catch (\Exception $e) {
+            // Revertir transacción en caso de error
+            DB::rollBack();
+            Log::error("Error al actualizar cliente: " . $e->getMessage());
+            
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['error' => 'Error al actualizar el cliente: ' . $e->getMessage()]);
+        }
     }
 
     /**
-     * Remove the specified resource from storage.
-     *
-     * @param int $id
-     * @return \Illuminate\Http\Response
+     * Eliminar un cliente
      */
-    public function destroy($id)
+    public function destroy(Client $client)
     {
-        //
+        // Verificar permisos
+        if (!auth()->user()->hasModuleAccess('clientes') || !auth()->user()->isAdmin()) {
+            return redirect()->route('home')->with('error', 'No tienes permisos para eliminar clientes');
+        }
+        
+        try {
+            // Iniciar transacción
+            DB::beginTransaction();
+            
+            // Eliminar registros relacionados
+            $client->records()->delete();
+            
+            // Eliminar el cliente
+            $client->delete();
+            
+            // Confirmar transacción
+            DB::commit();
+            
+            return redirect()->route('clients.index')
+                ->with('success', 'Cliente eliminado correctamente');
+                
+        } catch (\Exception $e) {
+            // Revertir transacción en caso de error
+            DB::rollBack();
+            Log::error("Error al eliminar cliente: " . $e->getMessage());
+            
+            return redirect()->back()
+                ->with('error', 'Error al eliminar el cliente: ' . $e->getMessage());
+        }
     }
 
-    // Método para generar el reporte de clientes por categoría
-    public function report()
+    /**
+     * Agregar nota al expediente del cliente
+     */
+    public function addRecord(Request $request, Client $client)
     {
-        return view('reports.clients.categories');
+        // Verificar permisos
+        if (!auth()->user()->hasModuleAccess('clientes')) {
+            return redirect()->route('home')->with('error', 'No tienes permisos para modificar expedientes');
+        }
+        
+        // Validar datos
+        $request->validate([
+            'record_type' => 'required|string',
+            'description' => 'required|string',
+            'record_status' => 'nullable|string'
+        ]);
+        
+        try {
+            // Crear nuevo registro en el expediente
+            $client->addRecord(
+                $request->record_type,
+                $request->description,
+                $request->record_status ?? ClientRecord::STATUS_ACTIVE
+            );
+            
+            // Si es una nota de lista negra, actualizar el cliente
+            if ($request->record_type === ClientRecord::TYPE_BLACKLIST) {
+                $client->blacklisted = true;
+                $client->blacklist_reason = $request->description;
+                $client->save();
+            }
+            
+            return redirect()->route('clients.show', $client)
+                ->with('success', 'Nota agregada al expediente correctamente');
+                
+        } catch (\Exception $e) {
+            Log::error("Error al agregar nota al expediente: " . $e->getMessage());
+            
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Error al agregar nota al expediente: ' . $e->getMessage());
+        }
     }
-    
-    // Método para generar el reporte de desempeño de clientes
-    public function performance()
+
+    /**
+     * Reactivar un cliente que estaba en lista negra
+     */
+    public function reactivate($id)
     {
-        return view('reports.clients.performance');
+        // Verificar permisos
+        if (!auth()->user()->hasModuleAccess('clientes') || !auth()->user()->isAdmin()) {
+            return redirect()->route('home')->with('error', 'No tienes permisos para reactivar clientes');
+        }
+        
+        // Buscar el cliente
+        $client = Client::findOrFail($id);
+        
+        try {
+            // Quitar de lista negra
+            $client->blacklisted = false;
+            $client->blacklist_reason = null;
+            $client->is_active = true;
+            $client->save();
+            
+            // Agregar nota al expediente
+            $client->addRecord(
+                ClientRecord::TYPE_NOTE,
+                'Cliente reactivado y removido de lista negra por ' . auth()->user()->name,
+                ClientRecord::STATUS_IMPORTANT
+            );
+            
+            return redirect()->route('clients.show', ['client' => $client->id])
+                ->with('success', 'Cliente reactivado correctamente');
+                
+        } catch (\Exception $e) {
+            Log::error("Error al reactivar cliente: " . $e->getMessage());
+            
+            return redirect()->back()
+                ->withErrors(['error' => 'Error al reactivar el cliente: ' . $e->getMessage()]);
+        }
     }
-}
+
+    /**
+     * Validar datos del cliente
+     */
+    private function validateClientData(Request $request, $clientId = null)
+    {
+        $rules = [
+            'name' => 'required|string|max:255',
+            'last_name' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255|unique:clients,email' . ($clientId ? ',' . $clientId : ''),
+            'phone' => 'required|string|max:20',
+            'nit' => 'required|string|max:20',
+            'dui' => 'nullable|string|max:20',
+            'address' => 'required|string',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100|default:El Salvador',
+            'birthdate' => 'nullable|date',
+            'gender' => 'nullable|in:M,F',
+            'civil_status' => 'nullable|in:soltero,casado,divorciado,viudo,union_libre',
+            
+            // Datos del cónyuge
+            'spouse_name' => 'nullable|required_if:civil_status,casado|string|max:255',
+            'spouse_job' => 'nullable|string|max:255',
+            'spouse_phone' => 'nullable|string|max:20',
+            
+            // Datos de ubicación adicionales
+            'province' => 'nullable|string|max:100',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:100',
+            
+            // Datos del negocio
+            'business_type' => 'nullable|string|max:100',
+            'business_time' => 'nullable|integer',
+            'sales_good' => 'nullable|numeric',
+            'sales_bad' => 'nullable|numeric',
+            'weekly_average' => 'nullable|numeric',
+            'net_profit' => 'nullable|numeric',
+            
+            // Datos de crédito
+            'loan_amount' => 'nullable|numeric|min:0',
+            'interest_rate' => 'nullable|numeric|min:0|max:100',
+            'payment_frequency' => 'nullable|in:daily,weekly,biweekly,monthly',
+            'first_payment_date' => 'nullable|date|after:today',
+            'notes' => 'nullable|string'
+        ];
+        
+        return $request->validate($rules);
+    }
+
+    /**
+     * Registrar cambios significativos en los datos del cliente
+     */
+    private function logSignificantChanges(Client $client, array $oldData)
+    {
+        $changes = [];
+        
+        // Campos a monitorear
+        $fieldsToMonitor = [
+            'name' => 'nombre',
+            'last_name' => 'apellido',
+            'nit' => 'NIT',
+            'dui' => 'DUI',
+            'phone' => 'teléfono',
+            'email' => 'correo electrónico',
+            'address' => 'dirección',
+            'business_type' => 'tipo de negocio',
+            'business_time' => 'tiempo del negocio',
+            'sales_good' => 'ventas buenas',
+            'sales_bad' => 'ventas malas',
+            'weekly_average' => 'promedio semanal',
+            'net_profit' => 'ganancia neta'
+        ];
+        
+        foreach ($fieldsToMonitor as $field => $label) {
+            if (isset($oldData[$field]) && $client->$field !== $oldData[$field]) {
+                $changes[] = "Cambio en {$label}: de '{$oldData[$field]}' a '{$client->$field}'";
+            }
+        }
+        
+        // Si hay cambios, registrarlos en el expediente
+        if (!empty($changes)) {
+            $description = "Se realizaron los siguientes cambios:\n" . implode("\n", $changes);
+            
+            $client->addRecord(
+                ClientRecord::TYPE_NOTE,
+                $description,
+                ClientRecord::STATUS_IMPORTANT
+            );
+        }
+    }
+} 

@@ -16,6 +16,7 @@ use App\Models\PaymentAgreement;
 use App\Models\AccountingEntry;
 use App\Models\Report;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class PymesController extends Controller
 {
@@ -144,6 +145,7 @@ class PymesController extends Controller
         $solicitud->description = $request->description;
         $solicitud->status = 'pending';
         $solicitud->analyst_id = auth()->id(); // Asignar al usuario actual como analista
+        $solicitud->application_date = now(); // Establecer la fecha de solicitud
         $solicitud->save();
 
         // Procesar documentos si existen
@@ -174,6 +176,210 @@ class PymesController extends Controller
                                   ->findOrFail($id);
                                   
         return view('pymes.solicitudes.show', compact('solicitud'));
+    }
+
+    /**
+     * Aprobar una solicitud de crédito
+     */
+    public function solicitudesApprove(Request $request, $id)
+    {
+        \Log::info('Iniciando aprobación de solicitud', [
+            'id' => $id,
+            'user_id' => auth()->id(),
+            'request_data' => $request->all()
+        ]);
+
+        try {
+            $request->validate([
+                'approval_notes' => 'nullable|string|max:1000',
+            ]);
+
+            DB::transaction(function() use ($request, $id) {
+                $solicitud = LoanApplication::findOrFail($id);
+                
+                \Log::info('Solicitud encontrada', [
+                    'solicitud_id' => $solicitud->id,
+                    'status' => $solicitud->status,
+                    'client_id' => $solicitud->client_id
+                ]);
+                
+                if ($solicitud->status !== 'pending' && $solicitud->status !== 'under_review') {
+                    throw new \Exception('Solo se pueden aprobar solicitudes pendientes o en revisión.');
+                }
+
+                // Verificar si ya existe un crédito
+                if ($solicitud->credit()->exists()) {
+                    throw new \Exception('Esta solicitud ya tiene un crédito asociado.');
+                }
+
+                // Actualizar la solicitud
+                $solicitud->status = 'approved';
+                $solicitud->approved_by = auth()->id();
+                $solicitud->approval_date = now();
+                $solicitud->approval_notes = $request->approval_notes;
+                $solicitud->save();
+
+                \Log::info('Solicitud actualizada', [
+                    'new_status' => $solicitud->status,
+                    'approved_by' => $solicitud->approved_by
+                ]);
+
+                // Generar número de crédito
+                $creditNumber = 'CR-' . str_pad($solicitud->id, 6, '0', STR_PAD_LEFT);
+
+                // Crear el crédito
+                $credit = new Credit();
+                $credit->client_id = $solicitud->client_id;
+                $credit->id_user = $solicitud->client_id; // Campo requerido
+                $credit->credit_number = $creditNumber;
+                $credit->amount_requested = $solicitud->amount_requested;
+                $credit->amount_approved = $solicitud->amount_requested;
+                $credit->amount = $solicitud->amount_requested; // Campo requerido, default 0.00
+                $credit->amount_neto = $solicitud->amount_requested; // Campo requerido, default 0.00
+                $credit->payment_frequency = $solicitud->payment_frequency ?? 'monthly';
+                $credit->payment_type = $solicitud->payment_frequency ?? 'monthly';
+                $credit->payment_number = $solicitud->term_months;
+                $credit->first_payment_date = now()->addDays(30);
+                $credit->first_pay = now()->addDays(30);
+                $credit->status = 'inprogress'; // Valor por defecto en la BD
+                $credit->approval_date = now();
+                $credit->created_by = auth()->id();
+                $credit->branch_id = auth()->user()->branch_id ?? null;
+                $credit->notes = $request->approval_notes;
+                $credit->is_overdue = 0; // Campo requerido, default 0
+                
+                \Log::info('Intentando guardar crédito', [
+                    'credit_data' => $credit->toArray()
+                ]);
+                
+                $credit->save();
+
+                \Log::info('Crédito guardado', [
+                    'credit_id' => $credit->id
+                ]);
+
+                // Registrar la acción en el historial
+                $solicitud->history()->create([
+                    'action' => 'approve',
+                    'user_id' => auth()->id(),
+                    'notes' => $request->approval_notes,
+                    'data' => json_encode([
+                        'credit_id' => $credit->id,
+                        'credit_number' => $credit->credit_number,
+                        'amount' => $credit->amount_approved,
+                        'payment_number' => $credit->payment_number
+                    ])
+                ]);
+
+                // Intentar generar plan de pagos si el método existe
+                if (method_exists($credit, 'generatePaymentSchedule')) {
+                    $credit->generatePaymentSchedule();
+                } elseif (method_exists($credit, 'generatePaymentPlan')) {
+                    $credit->generatePaymentPlan();
+                }
+            });
+
+            $response = [
+                'success' => true,
+                'message' => 'Solicitud aprobada correctamente y crédito creado.',
+                'redirect' => route('pymes.solicitudes.show', $id)
+            ];
+
+            if ($request->wantsJson()) {
+                return response()->json($response);
+            }
+
+            return redirect()
+                ->route('pymes.solicitudes.show', $id)
+                ->with('success', $response['message']);
+
+        } catch (\Exception $e) {
+            \Log::error('Error al aprobar solicitud: ' . $e->getMessage(), [
+                'exception' => $e,
+                'id' => $id,
+                'user_id' => auth()->id()
+            ]);
+            
+            $response = [
+                'success' => false,
+                'message' => 'Error al aprobar la solicitud: ' . $e->getMessage()
+            ];
+
+            if ($request->wantsJson()) {
+                return response()->json($response, 422);
+            }
+            
+            return back()
+                ->withInput()
+                ->with('error', $response['message']);
+        }
+    }
+
+    /**
+     * Rechazar una solicitud de crédito
+     */
+    public function solicitudesReject(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'rejection_reason' => 'required|string|max:1000',
+            ]);
+
+            DB::transaction(function() use ($request, $id) {
+                $solicitud = LoanApplication::findOrFail($id);
+                
+                if ($solicitud->status !== 'pending' && $solicitud->status !== 'under_review') {
+                    throw new \Exception('Solo se pueden rechazar solicitudes pendientes o en revisión.');
+                }
+
+                // Actualizar la solicitud
+                $solicitud->status = 'rejected';
+                $solicitud->rejected_by = auth()->id();
+                $solicitud->rejection_date = now();
+                $solicitud->rejection_reason = $request->rejection_reason;
+                $solicitud->save();
+
+                // Registrar la acción en el historial
+                $solicitud->history()->create([
+                    'action' => 'reject',
+                    'user_id' => auth()->id(),
+                    'notes' => $request->rejection_reason,
+                    'data' => json_encode([
+                        'reason' => $request->rejection_reason
+                    ])
+                ]);
+            });
+
+            $response = [
+                'success' => true,
+                'message' => 'Solicitud rechazada correctamente.',
+                'redirect' => route('pymes.solicitudes.show', $id)
+            ];
+
+            if ($request->wantsJson()) {
+                return response()->json($response);
+            }
+
+            return redirect()
+                ->route('pymes.solicitudes.show', $id)
+                ->with('success', $response['message']);
+
+        } catch (\Exception $e) {
+            \Log::error('Error al rechazar solicitud: ' . $e->getMessage());
+
+            $response = [
+                'success' => false,
+                'message' => 'Error al rechazar la solicitud: ' . $e->getMessage()
+            ];
+
+            if ($request->wantsJson()) {
+                return response()->json($response, 422);
+            }
+
+            return back()
+                ->withInput()
+                ->with('error', $response['message']);
+        }
     }
 
     /**
@@ -762,47 +968,175 @@ class PymesController extends Controller
     }
 
     /**
+     * Almacenar un nuevo estado financiero
+     */
+    public function storeFinancialStatement(Request $request)
+    {
+        $request->validate([
+            'loan_application_id' => 'required|exists:loan_applications,id',
+            'statement_type' => 'required|in:balance,income,cashflow',
+            'period_start' => 'required|date',
+            'period_end' => 'required|date|after:period_start',
+            'statement_file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx|max:10240',
+            'notes' => 'nullable|string'
+        ]);
+
+        $solicitud = LoanApplication::findOrFail($request->loan_application_id);
+        
+        // Guardar el archivo
+        $path = $request->file('statement_file')->store('documents/financial-statements', 'public');
+        
+        // Crear el estado financiero
+        $statement = new FinancialStatement([
+            'loan_application_id' => $solicitud->id,
+            'user_id' => $solicitud->client_id,
+            'statement_type' => $request->statement_type,
+            'statement_date' => now(),
+            'period_start' => $request->period_start,
+            'period_end' => $request->period_end,
+            'file_path' => $path,
+            'notes' => $request->notes,
+            'data' => [] // Se llenará cuando se procese el archivo
+        ]);
+        
+        $statement->save();
+
+        return redirect()
+            ->route('pymes.analisis.create', $solicitud->id)
+            ->with('success', 'Estado financiero registrado correctamente.');
+    }
+
+    /**
+     * Validar un estado financiero
+     */
+    public function validateFinancialStatement($id)
+    {
+        $statement = FinancialStatement::findOrFail($id);
+        
+        $statement->is_validated = true;
+        $statement->validated_by = auth()->id();
+        $statement->validation_date = now();
+        $statement->save();
+
+        return redirect()
+            ->back()
+            ->with('success', 'Estado financiero validado correctamente.');
+    }
+
+    /**
      * Almacenar un nuevo análisis de crédito
      */
     public function analisisStore(Request $request)
     {
         $request->validate([
             'loan_application_id' => 'required|exists:loan_applications,id',
-            'user_id' => 'required|exists:users,id',
-            'score' => 'required|numeric|min:0|max:100',
+            'qualitative_factors' => 'required|array',
             'risk_level' => 'required|in:very_low,low,medium,high,very_high',
-            'scoring_model' => 'required|string|max:255',
-            'financial_indicators' => 'required|array',
             'recommendation' => 'required|in:approve,reject,review',
             'notes' => 'nullable|string',
         ]);
 
-        // Convertir los arreglos a JSON
-        $financialIndicators = json_encode($request->financial_indicators);
-        $qualitativeFactors = json_encode($request->qualitative_factors ?? []);
-        $externalBureauData = json_encode($request->external_bureau_data ?? []);
+        try {
+            DB::transaction(function() use ($request) {
+                // Obtener la solicitud
+                $solicitud = LoanApplication::findOrFail($request->loan_application_id);
 
-        $scoring = new CreditScoring();
-        $scoring->loan_application_id = $request->loan_application_id;
-        $scoring->user_id = $request->user_id;
-        $scoring->score = $request->score;
-        $scoring->risk_level = $request->risk_level;
-        $scoring->scoring_model = $request->scoring_model;
-        $scoring->financial_indicators = $financialIndicators;
-        $scoring->qualitative_factors = $qualitativeFactors;
-        $scoring->external_bureau_data = $externalBureauData;
-        $scoring->recommendation = $request->recommendation;
-        $scoring->notes = $request->notes;
-        $scoring->analyst_id = auth()->id();
-        $scoring->calculated_by = auth()->id();
-        $scoring->calculation_date = now();
-        $scoring->save();
+                // Crear el scoring
+                $scoring = new CreditScoring();
+                $scoring->loan_application_id = $solicitud->id;
+                $scoring->user_id = $solicitud->client_id;
+                
+                // Calcular score basado en factores cualitativos
+                $qualitativeScore = $this->calculateQualitativeScore($request->qualitative_factors);
+                $scoring->score = $qualitativeScore;
+                
+                $scoring->risk_level = $request->risk_level;
+                $scoring->scoring_model = 'qualitative_analysis';
+                $scoring->financial_indicators = '{}';
+                $scoring->qualitative_factors = json_encode($request->qualitative_factors);
+                $scoring->external_bureau_data = '{}';
+                $scoring->recommendation = $request->recommendation;
+                $scoring->notes = $request->notes;
+                $scoring->analyst_id = auth()->id();
+                $scoring->calculated_by = auth()->id();
+                $scoring->calculation_date = now();
+                $scoring->save();
 
-        // Actualizar el estado de la solicitud de préstamo
-        $loanApplication = LoanApplication::find($request->loan_application_id);
-        $loanApplication->status = 'analyzed';
-        $loanApplication->save();
+                // Actualizar el estado de la solicitud
+                $solicitud->status = 'analyzed';
+                $solicitud->analyst_id = auth()->id();
+                $solicitud->save();
 
-        return redirect()->route('pymes.analisis.show', $scoring->id)->with('success', 'Análisis de crédito registrado correctamente');
+                // Si la recomendación es aprobar, actualizar el estado
+                if ($request->recommendation === 'approve') {
+                    $solicitud->status = 'approved';
+                    $solicitud->approved_by = auth()->id();
+                    $solicitud->approval_date = now();
+                    $solicitud->save();
+
+                    // Crear el crédito
+                    $credit = Credit::create([
+                        'client_id' => $solicitud->client_id,
+                        'loan_application_id' => $solicitud->id,
+                        'amount' => $solicitud->amount_requested,
+                        'term_months' => $solicitud->term_months,
+                        'interest_rate' => $solicitud->interest_rate,
+                        'payment_frequency' => $solicitud->payment_frequency ?? 'monthly',
+                        'status' => 'active',
+                        'start_date' => now(),
+                        'created_by' => auth()->id(),
+                    ]);
+
+                    // Generar plan de pagos
+                    $credit->generatePaymentSchedule();
+                }
+            });
+
+            return redirect()
+                ->route('pymes.solicitudes.show', $request->loan_application_id)
+                ->with('success', 'Análisis de crédito registrado correctamente' . 
+                    ($request->recommendation === 'approve' ? ' y solicitud aprobada' : ''));
+
+        } catch (\Exception $e) {
+            \Log::error('Error al guardar análisis: ' . $e->getMessage());
+            return back()
+                ->withInput()
+                ->with('error', 'Error al guardar el análisis: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Calcular score basado en factores cualitativos
+     */
+    private function calculateQualitativeScore($factors)
+    {
+        $scores = [
+            'excellent' => 100,
+            'very_stable' => 100,
+            'leader' => 100,
+            'good' => 80,
+            'stable' => 80,
+            'strong' => 80,
+            'average' => 60,
+            'variable' => 60,
+            'moderate' => 60,
+            'limited' => 40,
+            'weak' => 40,
+            'unstable' => 20,
+            'poor' => 20,
+            'none' => 0
+        ];
+
+        $total = 0;
+        $count = 0;
+
+        foreach ($factors as $factor => $value) {
+            if (isset($scores[$value])) {
+                $total += $scores[$value];
+                $count++;
+            }
+        }
+
+        return $count > 0 ? round($total / $count) : 0;
     }
 }

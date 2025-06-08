@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\db_supervisor_has_agent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;

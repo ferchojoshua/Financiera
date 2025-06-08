@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class BypassPermissionsMiddleware
 {
@@ -26,11 +27,11 @@ class BypassPermissionsMiddleware
                 $user->originalLevel = $user->level;
             }
             
-            // Activamos el bypass de permisos
-            $user->bypassAuthChecks = true;
-            
-            // No modificamos directamente el rol para evitar problemas con las consultas
-            // Solo habilitamos el bypass que usará los métodos de comprobación
+            // Solo activar bypass en modo debug
+            if (config('app.debug', false)) {
+                $user->bypassAuthChecks = true;
+                Log::info('Bypass de permisos activo para usuario: ' . $user->id . ' - ' . $user->name);
+            }
         }
         
         return $next($request);

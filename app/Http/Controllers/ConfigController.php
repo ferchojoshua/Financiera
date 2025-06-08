@@ -102,60 +102,15 @@ class ConfigController extends Controller
     /**
      * Mostrar listado de usuarios
      */
-    public function usersIndex(Request $request)
+    public function usersIndex()
     {
-        try {
-            $query = User::query();
-
-            // Aplicar filtros si existen
-            if ($request->has('search') && !empty($request->search)) {
-                $search = $request->search;
-                $query->where(function($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%")
-                      ->orWhere('username', 'like', "%{$search}%")
-                      ->orWhere('phone', 'like', "%{$search}%");
-                });
-            }
-
-            if ($request->has('role') && !empty($request->role)) {
-                $query->where('role', $request->role);
-            }
-
-            if ($request->has('status') && !empty($request->status)) {
-                $query->where('active_user', $request->status);
-            }
-
-            // Si no es superadmin, no mostrar superadmins
-            if (!auth()->user()->isSuperAdmin()) {
-                $query->where('role', '!=', 'superadmin');
-            }
-
-            $users = $query->orderBy('name')->paginate(10);
-            
-            // Intentar registrar actividad para auditoría si la tabla existe
-            try {
-                if (class_exists('\App\Models\Audit')) {
-                    \App\Models\Audit::create([
-                        'user_id' => auth()->id(),
-                        'action' => 'view',
-                        'model' => 'User',
-                        'details' => 'Usuario consultó listado de usuarios'
-                    ]);
-                }
-            } catch (\Exception $auditError) {
-                // Silenciar error de auditoría
-            }
-
-            // Pasar datos a la vista y mostrarla
-            return view('config.users.index', [
-                'users' => $users,
-                'userCount' => $users->total(),
-                'request' => $request->all()
-            ]);
-        } catch (\Exception $e) {
-            return redirect()->route('config.index')->with('error', 'Error al cargar usuarios');
-        }
+        // Obtener usuarios
+        $users = \App\Models\User::with('roles')->get();
+        
+        // Obtener roles para el filtro
+        $roles = \App\Models\Role::where('is_active', true)->get();
+        
+        return view('config.users.index', compact('users', 'roles'));
     }
 
     /**
@@ -168,24 +123,22 @@ class ConfigController extends Controller
             return redirect()->route('home')->with('error', 'No tienes permisos para crear usuarios');
         }
 
-        // Crear roles predefinidos para evitar problemas con la base de datos
-        $roles = [
-            (object)['id' => 1, 'name' => 'Super Administrador', 'slug' => 'superadmin'],
-            (object)['id' => 2, 'name' => 'Administrador', 'slug' => 'admin'],
-            (object)['id' => 3, 'name' => 'Supervisor', 'slug' => 'supervisor'],
-            (object)['id' => 4, 'name' => 'Caja', 'slug' => 'caja'],
-            (object)['id' => 5, 'name' => 'Colector', 'slug' => 'colector'],
-            (object)['id' => 6, 'name' => 'Usuario', 'slug' => 'user']
-        ];
-        
-        // Si el usuario no es superadmin, filtrar los roles
+        // Obtener todos los roles activos
+        $roles = \App\Models\Role::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        // Si no es superadmin, filtrar el rol de superadmin
         if (!auth()->user()->isSuperAdmin()) {
-            $roles = collect($roles)->filter(function($role) {
+            $roles = $roles->filter(function($role) {
                 return $role->slug !== 'superadmin';
             })->values();
         }
+
+        // Asegurar que el menú lateral esté visible
+        $showSidebar = true;
         
-        return view('config.users.create', compact('roles'));
+        return view('config.users.create', compact('roles', 'showSidebar'));
     }
 
     /**
@@ -344,39 +297,84 @@ class ConfigController extends Controller
      */
     public function permisosIndex()
     {
-        // Obtener roles disponibles
-        $roles = [
-            'admin' => 'Administrador',
-            'supervisor' => 'Supervisor',
-            'caja' => 'Cajero',
-            'colector' => 'Colector',
-            'user' => 'Cliente'
-        ];
+        // Verificar que el usuario tenga permisos
+        if (!auth()->user()->isSuperAdmin() && !auth()->user()->isAdmin()) {
+            return redirect()->route('home')->with('error', 'No tienes permisos para acceder a esta área');
+        }
         
-        // Módulos del sistema
+        // Obtener roles disponibles (excepto superadmin)
+        $roles = Role::where('slug', '!=', 'superadmin')
+                     ->where('is_active', true)
+                     ->pluck('name', 'slug')
+                     ->toArray();
+        
+        // Módulos del sistema - Organizados por categorías
         $modulos = [
+            // Módulos Principales
             'dashboard' => 'Dashboard',
-            'clientes' => 'Gestión de Clientes',
-            'pymes' => 'Gestión de PYMES',
-            'creditos' => 'Créditos',
-            'pagos' => 'Pagos',
-            'cobranzas' => 'Cobranzas',
+            'billetera' => 'Billetera',
+            
+            // Gestión de Clientes
+            'clientes' => 'Clientes Regulares',
+            'pymes' => 'Clientes PYME',
+            
+            // Créditos y Préstamos
+            'solicitudes' => 'Solicitudes de Crédito',
+            'analisis' => 'Análisis y Scoring',
             'garantias' => 'Garantías',
-            'reportes' => 'Reportes',
-            'contabilidad' => 'Contabilidad',
             'productos' => 'Productos Financieros',
-            'configuracion' => 'Configuración'
+            'simulador' => 'Simulador',
+            
+            // Pagos y Cobranza
+            'pagos' => 'Pagos',
+            'cobranza' => 'Cobranza',
+            'cobranzas' => 'Gestión de Cobranzas',
+            'acuerdos' => 'Acuerdos de Pago',
+            
+            // Reportes y Contabilidad
+            'reportes' => 'Reportes',
+            'reportes_cancelados' => 'Reportes Cancelados',
+            'reportes_desembolsos' => 'Reportes Desembolsos',
+            'reportes_activos' => 'Reportes Activos',
+            'reportes_vencidos' => 'Reportes Vencidos',
+            'reportes_por_cancelar' => 'Reportes Por Cancelar',
+            'cierre_mes' => 'Cierre de Mes',
+            'recuperacion_desembolsos' => 'Recuperación y Desembolsos',
+            
+            // Rutas y Cobranza
+            'rutas' => 'Gestión de Rutas',
+            'asignacion_creditos' => 'Asignación de Créditos',
+            
+            // Sistema y Auditoría
+            'auditoria' => 'Registro de Auditoría',
+            'seguridad' => 'Seguridad',
+            
+            // Configuración del Sistema
+            'configuracion' => 'Configuración General',
+            'usuarios' => 'Gestión de Usuarios',
+            'permisos' => 'Permisos de Acceso',
+            'preferencias' => 'Preferencias del Sistema',
+            'empresa' => 'Información de la Empresa',
+            'caja' => 'Caja y Contabilidad',
+            'contabilidad' => 'Contabilidad'
         ];
         
-        // Aquí deberíamos cargar los permisos existentes de la base de datos
-        // Por ahora, simulamos algunos permisos predeterminados
-        $permisos = [
-            'admin' => array_keys($modulos), // Admin tiene acceso a todos los módulos
-            'supervisor' => ['dashboard', 'clientes', 'creditos', 'pagos', 'cobranzas', 'reportes'],
-            'caja' => ['dashboard', 'pagos'],
-            'colector' => ['dashboard', 'cobranzas', 'pagos'],
-            'user' => ['dashboard']
-        ];
+        // Cargar permisos actuales desde la BD
+        $permisosDB = DB::table('role_module_permissions')
+            ->join('roles', 'roles.id', '=', 'role_module_permissions.role_id')
+            ->where('roles.slug', '!=', 'superadmin')
+            ->where('role_module_permissions.has_access', true)
+            ->select('roles.slug as role_slug', 'role_module_permissions.module')
+            ->get();
+            
+        // Convertir a formato adecuado para la vista
+        $permisos = [];
+        foreach ($permisosDB as $permiso) {
+            if (!isset($permisos[$permiso->role_slug])) {
+                $permisos[$permiso->role_slug] = [];
+            }
+            $permisos[$permiso->role_slug][] = $permiso->module;
+        }
         
         return view('config.permisos.index', compact('roles', 'modulos', 'permisos'));
     }
@@ -513,7 +511,7 @@ class ConfigController extends Controller
     }
 
     /**
-     * Actualizar permisos de roles
+     * Actualiza los permisos de acceso para cada rol
      */
     public function permisosUpdate(Request $request)
     {
@@ -523,51 +521,31 @@ class ConfigController extends Controller
         }
         
         try {
-            $permissions = $request->input('permissions', []);
+            $permisos = $request->input('permisos', []);
             
-            // Obtener roles
-            $roles = Role::all();
+            // Obtener roles (excepto superadmin que siempre tiene todos los permisos)
+            $roles = Role::where('slug', '!=', 'superadmin')->get();
             
             // Iniciar transacción
             DB::beginTransaction();
             
+            // Obtener todos los módulos del sistema
+            $allModules = [
+                'configuracion', 'clientes', 'pymes', 'reportes', 'cobranzas', 
+                'seguridad', 'rutas', 'caja', 'usuarios', 'dashboard', 
+                'wallet', 'billetera', 'garantias', 'simulador', 'pagos', 
+                'cobranza', 'contabilidad', 'auditoria'
+            ];
+            
             // Procesar permisos de cada rol
             foreach ($roles as $role) {
-                // Siempre mantener todos los permisos para superadmin y admin
-                if ($role->slug === 'superadmin' || $role->slug === 'admin') {
-                    // Actualizamos para asegurar que superadmin y admin tengan acceso a todo
-                    $allModules = DB::table('role_module_permissions')
-                        ->select('module')
-                        ->distinct()
-                        ->pluck('module')
-                        ->toArray();
-                    
-                    foreach ($allModules as $module) {
-                        DB::table('role_module_permissions')
-                            ->updateOrInsert(
-                                ['role_id' => $role->id, 'module' => $module],
-                                [
-                                    'has_access' => true,
-                                    'updated_at' => now(),
-                                    'created_at' => now()
-                                ]
-                            );
-                    }
-                    
-                    continue;
-                }
-                
-                // Para otros roles, procesamos según el formulario
-                // Primero obtenemos todos los módulos disponibles
-                $allModules = DB::table('role_module_permissions')
-                    ->select('module')
-                    ->distinct()
-                    ->pluck('module')
-                    ->toArray();
+                // Admin siempre tiene todos los accesos (pero procesamos por si cambia en futuro)
+                $forceFullAccess = ($role->slug === 'admin');
                 
                 foreach ($allModules as $module) {
-                    // Verificar si el módulo está marcado para este rol
-                    $hasAccess = isset($permissions[$role->id][$module]);
+                    // Verificar si el módulo está marcado para este rol o si es admin
+                    $hasAccess = $forceFullAccess || 
+                                (isset($permisos[$role->slug]) && in_array($module, $permisos[$role->slug]));
                     
                     // Actualizar o insertar el permiso
                     DB::table('role_module_permissions')
@@ -585,15 +563,18 @@ class ConfigController extends Controller
             // Confirmar transacción
             DB::commit();
             
-            return redirect()->route('config.system_preferences')
-                ->with('success', 'Permisos de módulos actualizados correctamente');
+            return redirect()->route('config.permisos.index')
+                ->with('success', 'Permisos actualizados correctamente');
                 
         } catch (\Exception $e) {
             // Revertir en caso de error
             DB::rollBack();
             
-            return redirect()->route('config.system_preferences')
-                ->with('error', 'Error al actualizar permisos');
+            // Registrar el error
+            \Log::error('Error al actualizar permisos: ' . $e->getMessage());
+            
+            return redirect()->route('config.permisos.index')
+                ->with('error', 'Error al actualizar permisos: ' . $e->getMessage());
         }
     }
 } 

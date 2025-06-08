@@ -1,68 +1,16 @@
 @extends('layouts.app')
 
 @section('content')
-<script>
-// Definir togglePass como una función global
-window.togglePass = function(fieldId, buttonId) {
-    var field = document.getElementById(fieldId);
-    var button = document.getElementById(buttonId);
-    var icon = button.querySelector('i');
-    
-    if (field.type === 'password') {
-        field.type = 'text';
-        icon.classList.remove('fa-eye');
-        icon.classList.add('fa-eye-slash');
-    } else {
-        field.type = 'password';
-        icon.classList.remove('fa-eye-slash');
-        icon.classList.add('fa-eye');
-    }
-}
-
-// Definir generarPassword como una función global
-window.generarPassword = function() {
-    // Generar contraseña aleatoria
-    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
-    var randomPassword = '';
-    for (var i = 0; i < 10; i++) {
-        randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    
-    // Asignar la contraseña a ambos campos
-    var passwordField = document.getElementById('password');
-    var confirmField = document.getElementById('password_confirmation');
-    
-    passwordField.value = randomPassword;
-    confirmField.value = randomPassword;
-    
-    // Mostrar contraseña en texto plano
-    passwordField.type = 'text';
-    confirmField.type = 'text';
-    
-    // Actualizar íconos
-    document.querySelector('#toggle-password i').classList.remove('fa-eye');
-    document.querySelector('#toggle-password i').classList.add('fa-eye-slash');
-    
-    document.querySelector('#toggle-confirmation i').classList.remove('fa-eye');
-    document.querySelector('#toggle-confirmation i').classList.add('fa-eye-slash');
-    
-    return false; // Prevenir comportamiento predeterminado
-}
-</script>
-
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">Añadir Miembro</h4>
-                    <button type="button" class="close" aria-label="Close" onclick="window.history.back()">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0 font-weight-bold"><i class="fas fa-user-plus mr-2"></i>Crear Nuevo Usuario</h4>
                 </div>
                 <div class="card-body">
                     @if ($errors->any())
-                        <div class="alert alert-danger">
+                        <div class="alert alert-danger border-left-4">
                             <ul class="mb-0">
                                 @foreach ($errors->all() as $error)
                                     <li>{{ $error }}</li>
@@ -71,97 +19,94 @@ window.generarPassword = function() {
                         </div>
                     @endif
 
-                    <form action="{{ route('config.users.store') }}" method="POST">
+                    <form action="{{ route('config.users.store') }}" method="POST" class="needs-validation" novalidate>
                         @csrf
                         
-                        <h5 class="mb-3">Información General</h5>
-                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label font-weight-bold">Nombre <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="name" name="name" value="{{ old('name') }}" required>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="last_name" class="form-label font-weight-bold">Apellido</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" value="{{ old('last_name') }}">
+                            </div>
+                        </div>
 
-                        <div class="form-group mb-3">
-                            <label for="name">Nombre</label>
-                            <input type="text" class="form-control" id="name" name="name" placeholder="Nombre" value="{{ old('name') }}" required tabindex="1">
-                        </div>
-                        
-                        <div class="form-group mb-3">
-                            <label for="last_name">Apellido</label>
-                            <input type="text" class="form-control" id="last_name" name="last_name" placeholder="Apellido" value="{{ old('last_name') }}" tabindex="2">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label font-weight-bold">Email <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control" id="email" name="email" value="{{ old('email') }}" required>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="username" class="form-label font-weight-bold">Nombre de usuario <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="username" name="username" value="{{ old('username') }}" required>
+                            </div>
                         </div>
 
-                        <div class="form-group mb-3">
-                            <label for="phone">Teléfono</label>
-                            <input type="tel" class="form-control" id="phone" name="phone" placeholder="Teléfono" value="{{ old('phone') }}" tabindex="3">
-                        </div>
-                        
-                        <div class="form-group mb-3">
-                            <label>Género</label>
-                            <div class="mt-2">
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="gender" id="gender_male" value="M" {{ old('gender') == 'M' ? 'checked' : '' }} checked>
-                                    <label class="form-check-label" for="gender_male">Hombre</label>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="password" class="form-label font-weight-bold">Contraseña <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="password" name="password" required>
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="togglePass('password', 'toggle-password')">
+                                            <i class="fa fa-eye"></i>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="gender" id="gender_female" value="F" {{ old('gender') == 'F' ? 'checked' : '' }}>
-                                    <label class="form-check-label" for="gender_female">Mujer</label>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="password_confirmation" class="form-label font-weight-bold">Confirmar Contraseña <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" required>
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="togglePass('password_confirmation', 'toggle-confirmation')">
+                                            <i class="fa fa-eye"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <hr class="my-4">
-                        
-                        <h5 class="mb-3">Configuración de Cuenta</h5>
-
-                        <div class="form-group mb-3">
-                            <label for="email">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" placeholder="Email" value="{{ old('email') }}" required tabindex="4">
-                        </div>
-                        
-                        <div class="form-group mb-3">
-                            <label for="username">Nombre de usuario</label>
-                            <input type="text" class="form-control" id="username" name="username" placeholder="Nombre de usuario" value="{{ old('username') }}" required tabindex="5">
-                        </div>
-                        
-                        <div class="form-group mb-3">
-                            <label for="password">Contraseña</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control" id="password" name="password" placeholder="Contraseña" required tabindex="6">
-                                <div class="input-group-append">
-                                    <button type="button" class="btn btn-outline-secondary" id="toggle-password" tabindex="8" onclick="togglePass('password', 'toggle-password')">
-                                        <i class="fa fa-eye"></i>
-                                    </button>
-                                </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="role" class="form-label font-weight-bold">Rol <span class="text-danger">*</span></label>
+                                <select class="form-control" id="role" name="role" required>
+                                    <option value="">Seleccione un rol</option>
+                                    @foreach($roles as $role)
+                                        <option value="{{ $role->slug }}" {{ old('role') == $role->slug ? 'selected' : '' }}>
+                                            {{ $role->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
                             </div>
-                        </div>
-                        
-                        <div class="form-group mb-3">
-                            <label for="password_confirmation">Confirmar Contraseña</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" placeholder="Confirmar Contraseña" required tabindex="7">
-                                <div class="input-group-append">
-                                    <button type="button" class="btn btn-outline-secondary" id="toggle-confirmation" tabindex="8" onclick="togglePass('password_confirmation', 'toggle-confirmation')">
-                                        <i class="fa fa-eye"></i>
-                                    </button>
-                                </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="phone" class="form-label font-weight-bold">Teléfono</label>
+                                <input type="tel" class="form-control" id="phone" name="phone" value="{{ old('phone') }}">
                             </div>
                         </div>
 
-                        <div class="form-group mb-3">
-                            <label for="role">Role</label>
-                            <select class="form-control" id="role" name="role" required tabindex="9">
-                                <option value="">Selecciona una opción</option>
-                                @foreach($roles as $role)
-                                    <option value="{{ $role->slug }}" {{ old('role') == $role->slug ? 'selected' : '' }}>
-                                        {{ $role->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="address" class="form-label font-weight-bold">Dirección</label>
+                                <input type="text" class="form-control" id="address" name="address" value="{{ old('address') }}">
+                            </div>
                         </div>
 
-                        <!-- Campo oculto para level con valor predeterminado -->
-                        <input type="hidden" name="level" id="level" value="1">
-
-                        <div class="text-right mt-4">
-                            <a href="{{ route('config.users.index') }}" class="btn btn-secondary mr-2">Cancelar</a>
-                            <button type="submit" class="btn btn-primary">Guardar Usuario</button>
+                        <div class="row mt-4">
+                            <div class="col-md-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save mr-2"></i>Guardar Usuario
+                                </button>
+                                <a href="{{ route('config.users.index') }}" class="btn btn-secondary ml-2">
+                                    <i class="fas fa-arrow-left mr-2"></i>Volver
+                                </a>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -172,36 +117,31 @@ window.generarPassword = function() {
 
 @push('scripts')
 <script>
-    // Inicializar cuando el documento esté listo
-    document.addEventListener('DOMContentLoaded', function() {
-        // Validación del formulario
-        document.querySelector('form').addEventListener('submit', function(e) {
-            var password = document.getElementById('password').value;
-            var confirmation = document.getElementById('password_confirmation').value;
-            
-            // Verificar que las contraseñas coincidan
-            if (password !== confirmation) {
-                alert('Las contraseñas no coinciden');
-                document.getElementById('password_confirmation').focus();
-                e.preventDefault();
-                return false;
-            }
-        });
-    });
+function togglePass(fieldId, buttonId) {
+    var field = document.getElementById(fieldId);
+    var button = document.getElementById(buttonId);
+    
+    if (field.type === 'password') {
+        field.type = 'text';
+        button.querySelector('i').classList.remove('fa-eye');
+        button.querySelector('i').classList.add('fa-eye-slash');
+    } else {
+        field.type = 'password';
+        button.querySelector('i').classList.remove('fa-eye-slash');
+        button.querySelector('i').classList.add('fa-eye');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.querySelector('form');
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    }, false);
+});
 </script>
 @endpush
-
-@section('styles')
-<style>
-    .card {
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    }
-    .form-label {
-        font-weight: 600;
-    }
-    .bg-light {
-        background-color: #f8f9fa;
-    }
-</style>
-@endsection
 @endsection 

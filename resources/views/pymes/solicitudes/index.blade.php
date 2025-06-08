@@ -79,7 +79,7 @@
                                         <td>{{ $solicitud->loan_type }}</td>
                                         <td>${{ number_format($solicitud->amount_requested, 2) }}</td>
                                         <td>{{ $solicitud->term_months }}</td>
-                                        <td>{{ $solicitud->application_date->format('d/m/Y') }}</td>
+                                        <td>{{ $solicitud->application_date ? $solicitud->application_date->format('d/m/Y') : 'N/A' }}</td>
                                         <td>{{ $solicitud->analyst->name ?? 'No asignado' }}</td>
                                         <td>
                                             @switch($solicitud->status)

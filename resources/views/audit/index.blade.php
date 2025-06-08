@@ -95,7 +95,7 @@
                                         <td>{{ $audit->id }}</td>
                                         <td>{{ $audit->user ? $audit->user->name : 'Sistema' }}</td>
                                         <td>{{ ucfirst(str_replace('_', ' ', $audit->action)) }}</td>
-                                        <td>{{ Str::limit($audit->description, 50) }}</td>
+                                        <td>{{ \Illuminate\Support\Str::limit($audit->description, 50)}}</td>
                                         <td>{{ $audit->created_at->format('d/m/Y H:i:s') }}</td>
                                         <td>
                                             @php

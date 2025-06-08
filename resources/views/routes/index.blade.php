@@ -95,13 +95,13 @@
                                         <td>{{ $route->days_formatted }}</td>
                                         <td>
                                             @if($route->status == 'active')
-                                                <span class="badge badge-success text-white">Activa</span>
+                                                <span class="badge bg-success text-white">Activa</span>
                                             @else
-                                                <span class="badge badge-danger text-white">Inactiva</span>
+                                                <span class="badge bg-danger text-white">Inactiva</span>
                                             @endif
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge badge-primary text-white">
+                                            <span class="badge bg-primary text-white">
                                                 {{ $route->credits()->where('status', 'active')->count() }}
                                             </span>
                                         </td>
@@ -164,26 +164,20 @@
                                     <ul class="list-group list-group-flush">
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             <strong>Total de rutas:</strong>
-                                            <span class="badge badge-primary badge-pill">{{ $routes->total() }}</span>
+                                            <span class="badge bg-primary text-white rounded-pill">{{ $routeCount ?? $routes->total() }}</span>
                                         </li>
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             <strong>Rutas activas:</strong>
-                                            <span class="badge badge-success badge-pill">{{ $routes->where('status', 'active')->count() }}</span>
+                                            <span class="badge bg-success text-white rounded-pill">{{ $activeRouteCount ?? $routes->where('status', 'active')->count() }}</span>
                                         </li>
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             <strong>Rutas inactivas:</strong>
-                                            <span class="badge badge-danger badge-pill">{{ $routes->where('status', 'inactive')->count() }}</span>
+                                            <span class="badge bg-danger text-white rounded-pill">{{ $inactiveRouteCount ?? $routes->where('status', 'inactive')->count() }}</span>
                                         </li>
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             <strong>Préstamos asignados:</strong>
-                                            <span class="badge badge-info badge-pill">
-                                                @php
-                                                    $totalAssignedCredits = 0;
-                                                    foreach($routes as $route) {
-                                                        $totalAssignedCredits += $route->credits()->where('status', 'active')->count();
-                                                    }
-                                                    echo $totalAssignedCredits;
-                                                @endphp
+                                            <span class="badge bg-info text-white rounded-pill">
+                                                {{ $totalAssignedCredits ?? 0 }}
                                             </span>
                                         </li>
                                     </ul>

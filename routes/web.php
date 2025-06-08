@@ -42,10 +42,23 @@ use App\Http\Controllers\SupervisorController;
 use App\Http\Controllers\SummaryController;
 use App\Http\Controllers\FixPermissionsController;
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\UbicacionController;
+use App\Http\Controllers\ActividadController;
+use App\Http\Controllers\DatabaseFixController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\AccountingController;
+use App\Http\Controllers\LoanApplicationController;
 
 Route::get('/', function () {
     return redirect('/home');
 });
+
+// Simulador
+Route::middleware(['auth'])->group(function () {
+    Route::get('simulator', [SimulatorController::class, 'index'])->name('simulator.index');
+    Route::post('simulator/simulate', [SimulatorController::class, 'simulate'])->name('simulator.simulate');
+});
+
 Route::get('/logout', 'Auth\LoginController@logout');
 Route::get('/cron', 'closeController@close_automatic');
 
@@ -64,6 +77,17 @@ Route::get('/caja', [CashController::class, 'index'])->name('caja.index');
 Route::get('/caja/create', [CashController::class, 'create'])->name('cash.create');
 
 Auth::routes();
+
+// Ruta de diagnóstico temporal
+Route::get('/diagnose-view', function() {
+    dd([
+        'current_url' => url()->current(),
+        'intended_view' => 'clients.index',
+        'client_class' => class_exists('App\\Models\\Client') ? 'Existe' : 'No existe',
+        'Client_model_methods' => get_class_methods('App\\Models\\Client'),
+        'clients_route_exists' => Route::has('clients.index') ? 'Sí' : 'No'
+    ]);
+});
 
 // Rutas para usuarios autenticados
 Route::middleware(['auth'])->group(function () {
@@ -86,23 +110,136 @@ Route::middleware(['auth'])->group(function () {
         Route::get('summary-wallet', 'SummaryController@wallet')->name('summary.wallet');
         Route::get('summary-wallet/{id}', 'SummaryController@showWallet')->name('summary.wallet.show');
         
-        // Otras rutas administrativas
-        Route::resource('wallet', 'AdminWalletController');
+        // Rutas de AdminWalletController con nombres completos
+        Route::resource('wallet', 'AdminWalletController')->names([
+            'index' => 'admin.wallet.index',
+            'create' => 'admin.wallet.create',
+            'store' => 'admin.wallet.store',
+            'show' => 'admin.wallet.show',
+            'edit' => 'admin.wallet.edit',
+            'update' => 'admin.wallet.update',
+            'destroy' => 'admin.wallet.destroy',
+        ]);
         Route::post('wallet/{wallet}/deposit', 'AdminWalletController@deposit')->name('admin.wallet.deposit');
         Route::post('wallet/{wallet}/withdraw', 'AdminWalletController@withdraw')->name('admin.wallet.withdraw');
     });
     
-    // Rutas de cliente
-    Route::resource('client', 'ClientController');
+    // Rutas de cliente (nueva versión)
+    Route::prefix('client')->name('client.')->middleware(['auth'])->group(function() {
+        Route::get('/', 'ClientController@index')->name('index');
+        Route::get('/create', 'ClientController@create')->name('create');
+        Route::post('/store', 'ClientController@store')->name('store');
+        Route::get('/{id}', 'ClientController@show')->name('show');
+        Route::get('/{id}/edit', 'ClientController@edit')->name('edit');
+        Route::put('/{id}', 'ClientController@update')->name('update');
+        Route::delete('/{id}', 'ClientController@destroy')->name('destroy');
+        
+        // Tipos de cliente
+        Route::get('/types', 'ClientController@types')->name('types');
+        Route::post('/types', 'ClientController@storeType')->name('types.store');
+        Route::put('/types/{id}', 'ClientController@updateType')->name('types.update');
+        Route::delete('/types/{id}', 'ClientController@destroyType')->name('types.destroy');
+        
+        // Filtros y cambio de sucursal
+        Route::get('/filter', 'ClientController@filter')->name('filter');
+        Route::get('/change-branch', 'ClientController@changeBranch')->name('change_branch');
+    });
+    
+    // Rutas de clientes
+    Route::prefix('clients')->name('clients.')->middleware(['auth'])->group(function() {
+        Route::get('/', 'ClientController@index')->name('index');
+        Route::get('/create', 'ClientController@create')->name('create');
+        Route::post('/', 'ClientController@store')->name('store');
+        Route::get('/{id}', 'ClientController@show')->name('show');
+        Route::get('/{id}/edit', 'ClientController@edit')->name('edit');
+        Route::put('/{id}', 'ClientController@update')->name('update');
+        Route::delete('/{id}', 'ClientController@destroy')->name('destroy');
+        Route::post('/{id}/records', 'ClientController@addRecord')->name('records.add');
+        Route::post('/{id}/reactivate', 'ClientController@reactivate')->name('reactivate');
+        Route::get('/export/{format}', 'ClientController@export')->name('export');
+        
+        // Tipos de cliente
+        Route::get('/types', 'ClientController@types')->name('types');
+        Route::post('/types', 'ClientController@storeType')->name('types.store');
+        Route::put('/types/{id}', 'ClientController@updateType')->name('types.update');
+        Route::delete('/types/{id}', 'ClientController@destroyType')->name('types.destroy');
+        
+        // Filtros y cambio de sucursal
+        Route::get('/filter', 'ClientController@filter')->name('filter');
+        Route::get('/change-branch', 'ClientController@changeBranch')->name('change_branch');
+    });
+    
+    // Reportes de clientes
     Route::get('clients/report', 'ClientController@report')->name('clients.report');
     Route::get('clients/performance', 'ClientController@performance')->name('clients.performance');
+    Route::post('clients/change-branch', 'ClientController@changeBranch')->name('clients.change_branch');
     
     // Rutas de Wallet
     Route::resource('wallets', 'WalletController');
     Route::get('/wallet/index', 'WalletController@index')->name('wallets.manage');
     
-    // Rutas de crédito
+    // Rutas de créditos
+    Route::prefix('credits')->name('credits.')->middleware(['auth'])->group(function() {
+        Route::get('/', 'CreditController@index')->name('index');
+        Route::get('/create', 'CreditController@create')->name('create');
+        Route::post('/', 'CreditController@store')->name('store');
+        Route::get('/{id}', 'CreditController@show')->name('show');
+        Route::get('/{id}/edit', 'CreditController@edit')->name('edit');
+        Route::put('/{id}', 'CreditController@update')->name('update');
+        Route::delete('/{id}', 'CreditController@destroy')->name('destroy');
+        Route::get('/create/{client_id}', 'CreditController@createForClient')->name('create.client');
+    });
+    
+    // Rutas para solicitudes de crédito
+    Route::resource('loan-applications', LoanApplicationController::class);
+    Route::post('loan-applications/{loan_application}/approve', [LoanApplicationController::class, 'approve'])->name('loan-applications.approve');
+    Route::post('loan-applications/{loan_application}/reject', [LoanApplicationController::class, 'reject'])->name('loan-applications.reject');
+    
+    // Rutas de PYMES
+    Route::prefix('pymes')->name('pymes.')->middleware(['auth'])->group(function() {
+        // Solicitudes
+        Route::get('/solicitudes', [PymesController::class, 'solicitudes'])->name('solicitudes');
+        Route::get('/solicitudes/create', [PymesController::class, 'solicitudesCreate'])->name('solicitudes.create');
+        Route::post('/solicitudes', [PymesController::class, 'solicitudesStore'])->name('solicitudes.store');
+        Route::get('/solicitudes/{id}', [PymesController::class, 'solicitudesShow'])->name('solicitudes.show');
+        Route::post('/solicitudes/{id}/approve', [PymesController::class, 'solicitudesApprove'])->name('solicitudes.approve');
+        Route::post('/solicitudes/{id}/reject', [PymesController::class, 'solicitudesReject'])->name('solicitudes.reject');
+        
+        // Análisis
+        Route::get('/analisis', [PymesController::class, 'analisis'])->name('analisis');
+        Route::get('/analisis/create/{solicitud_id}', [PymesController::class, 'analisisCreate'])->name('analisis.create');
+        Route::post('/analisis/store', [PymesController::class, 'analisisStore'])->name('analisis.store');
+        Route::get('/analisis/{id}', [PymesController::class, 'analisisShow'])->name('analisis.show');
+        Route::post('/analisis/store-statement', [PymesController::class, 'storeFinancialStatement'])->name('analisis.store-statement');
+        Route::post('/analisis/validate-statement/{id}', [PymesController::class, 'validateFinancialStatement'])->name('analisis.validate-statement');
+
+        // Clientes
+        Route::get('/clientes', [PymesController::class, 'clientes'])->name('clientes');
+        Route::get('/clientes/create', [PymesController::class, 'clientesCreate'])->name('clientes.create');
+        Route::post('/clientes', [PymesController::class, 'clientesStore'])->name('clientes.store');
+        Route::get('/clientes/{id}', [PymesController::class, 'clientesShow'])->name('clientes.show');
+        
+        // Productos
+        Route::get('/productos', [PymesController::class, 'productos'])->name('productos');
+        Route::get('/productos/create', [PymesController::class, 'productosCreate'])->name('productos.create');
+        Route::post('/productos', [PymesController::class, 'productosStore'])->name('productos.store');
+        Route::get('/productos/{id}', [PymesController::class, 'productosShow'])->name('productos.show');
+        
+        // Garantías
+        Route::get('/garantias', [PymesController::class, 'garantias'])->name('garantias');
+        Route::get('/garantias/create', [PymesController::class, 'garantiasCreate'])->name('garantias.create');
+        Route::post('/garantias', [PymesController::class, 'garantiasStore'])->name('garantias.store');
+        Route::get('/garantias/{id}', [PymesController::class, 'garantiasShow'])->name('garantias.show');
+        Route::put('/garantias/{id}', [PymesController::class, 'garantiasUpdate'])->name('garantias.update');
+    });
+    
+    // Rutas de crédito (mantener por compatibilidad)
     Route::resource('credit', 'CreditController');
+    
+    // Rutas para aprobación de créditos
+    Route::get('/credit/pending/approval', 'CreditController@pendingApproval')->name('credit.pending_approval');
+    Route::get('/credit/{id}/approve', 'CreditController@showApprovalForm')->name('credit.approval.form');
+    Route::post('/credit/{id}/approval/process', 'CreditController@processApproval')->name('credit.approval.process');
     
     // Rutas de pago
     Route::resource('payment', 'PaymentController');
@@ -141,6 +278,7 @@ Route::middleware(['auth'])->group(function () {
     ]);
     Route::get('route/{route}/assign-credits', 'RouteController@assign_credits')->name('routes.assign_credits');
     Route::post('route/{route}/assign-credits', 'RouteController@save_assign_credits')->name('routes.save_assign_credits');
+    Route::post('routes/change-branch', 'RouteController@changeBranch')->name('routes.change_branch');
     
     
     // Rutas de estadísticas
@@ -185,53 +323,48 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/system-preferences', 'ConfigController@systemPreferences')->name('system_preferences');
     });
     
-    // PYMES
-    Route::prefix('pymes')->name('pymes.')->group(function () {
-        Route::get('/clientes', 'PymesController@clientes')->name('clientes');
-        Route::get('/clientes/create', 'PymesController@clientesCreate')->name('clientes.create');
-        Route::post('/clientes', 'PymesController@clientesStore')->name('clientes.store');
-        Route::get('/clientes/{id}', 'PymesController@clientesShow')->name('clientes.show');
-        Route::get('/garantias', 'PymesController@garantias')->name('garantias');
-        Route::get('/garantias/create', 'PymesController@garantiasCreate')->name('garantias.create');
-        Route::post('/garantias', 'PymesController@garantiasStore')->name('garantias.store');
-        Route::get('/garantias/{id}', 'PymesController@garantiasShow')->name('garantias.show');
-        Route::get('/solicitudes', 'PymesController@solicitudes')->name('solicitudes');
-        Route::get('/solicitudes/create', 'PymesController@solicitudesCreate')->name('solicitudes.create');
-        Route::post('/solicitudes', 'PymesController@solicitudesStore')->name('solicitudes.store');
-        Route::get('/solicitudes/{id}', 'PymesController@solicitudesShow')->name('solicitudes.show');
-        Route::get('/analisis', 'PymesController@analisis')->name('analisis');
-        Route::get('/analisis/create/{solicitud_id}', 'PymesController@analisisCreate')->name('analisis.create');
-        Route::post('/analisis', 'PymesController@analisisStore')->name('analisis.store');
-        Route::get('/analisis/{id}', 'PymesController@analisisShow')->name('analisis.show');
+    // Rutas de productos
+    Route::resource('products', 'ProductController');
+    
+    // Rutas de cobranza
+    Route::prefix('collection')->name('collection.')->middleware(['auth'])->group(function () {
+        // Acciones de cobranza
+        Route::get('/actions', [CollectionActionController::class, 'index'])->name('actions.index');
+        Route::get('/actions/create', [CollectionActionController::class, 'create'])->name('actions.create');
+        Route::post('/actions', [CollectionActionController::class, 'store'])->name('actions.store');
+        Route::get('/actions/{id}', [CollectionActionController::class, 'show'])->name('actions.show');
+        Route::get('/actions/{id}/edit', [CollectionActionController::class, 'edit'])->name('actions.edit');
+        Route::put('/actions/{id}', [CollectionActionController::class, 'update'])->name('actions.update');
+        Route::delete('/actions/{id}', [CollectionActionController::class, 'destroy'])->name('actions.destroy');
+
+        // Acuerdos de pago
+        Route::get('/agreements', [PaymentAgreementController::class, 'index'])->name('agreements.index');
+        Route::get('/agreements/create', [PaymentAgreementController::class, 'create'])->name('agreements.create');
+        Route::post('/agreements', [PaymentAgreementController::class, 'store'])->name('agreements.store');
+        Route::get('/agreements/{id}', [PaymentAgreementController::class, 'show'])->name('agreements.show');
+        Route::get('/agreements/{id}/edit', [PaymentAgreementController::class, 'edit'])->name('agreements.edit');
+        Route::put('/agreements/{id}', [PaymentAgreementController::class, 'update'])->name('agreements.update');
+        Route::delete('/agreements/{id}', [PaymentAgreementController::class, 'destroy'])->name('agreements.destroy');
     });
     
-    // Garantías
-    // Route::resource('garantias', 'GarantiasController');
-    
-    // Cobranzas
-    Route::prefix('collection')->name('collection.')->middleware(['auth', 'bypass.permissions'])->group(function () {
-    Route::prefix('actions')->name('actions.')->group(function () {
-        Route::get('/', 'CollectionActionController@index')->name('index');
-        Route::get('/create', 'CollectionActionController@create')->name('create');
-        Route::post('/', 'CollectionActionController@store')->name('store');
-        Route::get('/{id}', 'CollectionActionController@show')->name('show');
-        Route::get('/{id}/edit', 'CollectionActionController@edit')->name('edit');
-        Route::put('/{id}', 'CollectionActionController@update')->name('update');
-        Route::delete('/{id}', 'CollectionActionController@destroy')->name('destroy');
-        });
+    // Rutas de contabilidad
+    Route::prefix('accounting')->name('accounting.')->middleware(['auth'])->group(function () {
+        Route::get('/', [AccountingController::class, 'index'])->name('index');
+        Route::get('/create', [AccountingController::class, 'create'])->name('create');
+        Route::post('/', [AccountingController::class, 'store'])->name('store');
+        Route::get('/{id}', [AccountingController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [AccountingController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [AccountingController::class, 'update'])->name('update');
+        Route::delete('/{id}', [AccountingController::class, 'destroy'])->name('destroy');
+        
+        // Rutas para cierre mensual
+        Route::get('/month-close', [AccountingController::class, 'monthClose'])->name('month-close');
+        Route::post('/month-close', [AccountingController::class, 'processMonthClose'])->name('month-close.process');
+        
+        // Rutas para desembolsos
+        Route::get('/disbursements', [AccountingController::class, 'disbursements'])->name('disbursements');
+        Route::get('/disbursements/export', [AccountingController::class, 'exportDisbursements'])->name('disbursements.export');
     });
-    
-    // Contabilidad
-    Route::prefix('contabilidad')->name('contabilidad.')->group(function () {
-        Route::get('/', 'ContabilidadController@index')->name('index');
-        Route::get('/ingresos', 'ContabilidadController@ingresos')->name('ingresos');
-        Route::get('/gastos', 'ContabilidadController@gastos')->name('gastos');
-        Route::get('/balance', 'ContabilidadController@balance')->name('balance');
-    });
-    
-    // Simulador
-    Route::get('simulator', 'SimulatorController@index')->name('simulator.index');
-    Route::post('simulator/simulate', 'SimulatorController@simulate')->name('simulator.simulate');
 });
 
 // Ruta para solucionar problemas de configuración
@@ -297,8 +430,8 @@ Route::group(['middleware' => ['auth']], function () {
     Route::post('/config/permisos', 'ConfigController@permisosUpdate')->name('config.permisos.update');
     
     // Gestión de preferencias
-    Route::get('/config/preferences', 'ConfigController@preferencesEdit')->name('config.preferences.edit');
-    Route::post('/config/preferences', 'ConfigController@preferencesUpdate')->name('config.preferences.update');
+    Route::get('/config/preferences', [ConfigController::class, 'preferencesEdit'])->name('config.preferences.edit');
+    Route::post('/config/preferences', [ConfigController::class, 'preferencesUpdate'])->name('config.preferences.update');
 });
 
 // Rutas para el cierre diario
@@ -306,4 +439,83 @@ Route::prefix('supervisor/close')->name('supervisor.close.')->group(function () 
     Route::get('/', 'SupervisorController@close')->name('index');
     Route::post('/store', 'SupervisorController@storeClose')->name('store');
     Route::post('/all', 'SupervisorController@storeAllClose')->name('all');
+});
+
+// Rutas para el módulo de ubicaciones
+Route::prefix('ubicaciones')->middleware(['auth'])->group(function () {
+    // Vista principal del mapa
+    Route::get('/', 'UbicacionController@index')->name('ubicaciones.index');
+    
+    // Obtener ubicación de un agente específico
+    Route::get('/{id}', 'UbicacionController@obtenerUbicacion')->name('ubicaciones.obtener');
+    
+    // Obtener todas las ubicaciones de los agentes
+    Route::get('/api/todas', 'UbicacionController@obtenerTodasUbicaciones')->name('ubicaciones.todas');
+    
+    // Actualizar ubicación (para agentes)
+    Route::post('/actualizar', 'UbicacionController@actualizarUbicacion')->name('ubicaciones.actualizar');
+    
+    // Vista de registro de actividades
+    Route::get('/registro/actividades', 'UbicacionController@registroActividades')->name('ubicaciones.registro_actividades');
+});
+
+// Rutas para el módulo de actividades
+Route::resource('actividades', 'ActividadController')->middleware(['auth']);
+Route::get('api/cliente/{id}/actividades', 'ActividadController@actividadesCliente')
+    ->name('api.cliente.actividades')
+    ->middleware(['auth']);
+
+// API para obtener clientes
+Route::get('api/clientes', function() {
+    return App\Models\Cliente::select('id', 'nombre', 'apellido')
+        ->orderBy('nombre')
+        ->get()
+        ->map(function($cliente) {
+            return [
+                'id' => $cliente->id,
+                'nombre' => $cliente->nombre . ' ' . $cliente->apellido
+            ];
+        });
+})->name('api.clientes')->middleware(['auth']);
+
+// Ruta de prueba para diagnosticar layouts
+Route::get('clients-test', function() {
+    return view('clients.index_test');
+})->name('clients.test');
+
+// Rutas para manejo de errores
+Route::get('/access-denied/{module?}', function ($module = null) {
+    return view('errors.access_denied', ['module' => $module]);
+})->name('accessDenied');
+
+Route::get('/error', function () {
+    $message = request('message', 'Ha ocurrido un error');
+    return view('errors.generic', ['message' => $message]);
+})->name('error');
+
+// Rutas para arreglar problemas de base de datos
+Route::prefix('admin/database')->middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/fix', 'DatabaseFixController@fixDatabaseView')->name('admin.database.fix');
+    Route::get('/fix/payments', 'DatabaseFixController@fixPaymentsTable')->name('admin.database.fix.payments');
+    Route::post('/run-migration', 'DatabaseFixController@runMigration')->name('admin.database.run-migration');
+    Route::post('/run-command', 'DatabaseFixController@runCommand')->name('admin.database.run-command');
+});
+
+// Ruta directa para el nuevo formulario de clientes (acceso garantizado)
+Route::get('/new-client', function() {
+    return view('client.create_client');
+})->middleware(['auth'])->name('client.new');
+
+// Ruta para guardar el cliente
+Route::post('/client/store', 'ClientController@store')->middleware(['auth'])->name('client.store');
+
+// Rutas de solicitudes
+Route::prefix('solicitudes')->name('solicitudes.')->middleware(['auth'])->group(function () {
+    Route::get('/', 'CreditController@solicitudes')->name('index');
+    Route::get('/create', 'CreditController@createSolicitud')->name('create');
+    Route::post('/', 'CreditController@storeSolicitud')->name('store');
+    Route::get('/{id}', 'CreditController@showSolicitud')->name('show');
+    Route::get('/{id}/edit', 'CreditController@editSolicitud')->name('edit');
+    Route::put('/{id}', 'CreditController@updateSolicitud')->name('update');
+    Route::delete('/{id}', 'CreditController@destroySolicitud')->name('destroy');
 });

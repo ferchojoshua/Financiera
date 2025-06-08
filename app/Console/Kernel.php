@@ -16,6 +16,9 @@ class Kernel extends ConsoleKernel
         Commands\CreateBasicRoles::class,
         Commands\InsertRoleModulePermissions::class,
         Commands\CreateAdminWallets::class,
+        Commands\ManagePermissions::class,
+        \App\Console\Commands\CreatePaymentsTable::class,
+        Commands\UpdateModulePermissions::class,
     ];
 
     /**

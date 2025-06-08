@@ -160,7 +160,7 @@
                                 <td>{{ $client->phone ?? 'No disponible' }}</td>
                                 <td>{{ $client->address ?? 'No disponible' }}</td>
                                 <td>
-                                    <a href="{{ route('client.show', $client->id) }}" class="btn btn-sm btn-info">
+                                    <a href="{{ route('clients.show', $client->id) }}" class="btn btn-sm btn-info">
                                         <i class="fas fa-eye"></i> Ver
                                     </a>
                                 </td>

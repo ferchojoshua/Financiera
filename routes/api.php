@@ -25,15 +25,16 @@ Route::get('/branches/{id}/routes', function($id) {
         // Registrar en los logs para diagnóstico
         \Log::info("API /branches/$id/routes llamada");
         
-        // Verificar si la tabla route existe
-        if (!Schema::hasTable('route')) {
-            \Log::warning("API /branches/$id/routes: No se encontró la tabla 'route'");
+        // Verificar si la tabla routes existe
+        if (!Schema::hasTable('routes')) {
+            \Log::warning("API /branches/$id/routes: No se encontró la tabla 'routes'");
             return response()->json([], 200);
         }
         
-        // Buscar rutas activas
-        $routes = DB::table('route')
+        // Buscar rutas activas de la sucursal
+        $routes = DB::table('routes')
             ->where('status', 'active')
+            ->where('branch_id', $id)
             ->select('id', 'name')
             ->orderBy('name')
             ->get()

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 
 class CheckModuleAccess
 {
@@ -15,82 +16,145 @@ class CheckModuleAccess
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \Closure  $next
-     * @param  string  $module  El módulo que se intenta acceder
+     * @param  string|null  $module
      * @return mixed
      */
-    public function handle(Request $request, Closure $next, $module)
+    public function handle($request, Closure $next, $module = null)
     {
+        // Si no hay usuario autenticado, redirigir al login
+        if (!Auth::check()) {
+            return redirect()->route('login');
+        }
+
         $user = Auth::user();
         
-        if (!$user) {
-            return redirect('/login');
-        }
-        
-        // Verificar si debe omitir verificaciones
+        // Si el usuario puede omitir verificaciones, permitir acceso
         if ($user->shouldBypassPermissionChecks()) {
             return $next($request);
         }
         
-        // Superadmin y admin siempre tienen acceso
-        if ($user->isSuperAdmin() || $user->isAdmin()) {
+        // Si el usuario es superadmin, permitir acceso a todo
+        if ($user->isSuperAdmin()) {
             return $next($request);
         }
         
         try {
-            // Obtener el rol del usuario
-            $role = DB::table('roles')->where('slug', $user->role)->first();
-            
-            if (!$role) {
-                // Si no encuentra rol por slug, intentar por level (compatibilidad con código antiguo)
-                $role = DB::table('roles')->where('level', $user->level)->first();
+            // Identificar el módulo al que pertenece la ruta actual
+            if (!$module) {
+                $currentRouteName = Route::currentRouteName();
+                $module = $this->determineModuleFromRoute($currentRouteName);
                 
-                if (!$role) {
-                    Log::warning("Usuario ID {$user->id} sin rol válido intentando acceder a {$module}");
-                    return redirect('/home')->with('error', 'No tienes permisos para acceder a esta sección.');
+                // Si no se pudo determinar el módulo, permitir acceso
+                if (!$module) {
+                    // Registrar advertencia
+                    Log::warning("No se pudo determinar el módulo para la ruta: {$currentRouteName}");
+                    return $next($request);
                 }
             }
             
-            // Verificar permiso en la tabla role_module_permissions
-            $permission = DB::table('role_module_permissions')
-                ->where('role_id', $role->id)
-                ->where('module', $module)
-                ->where('has_access', true)
-                ->first();
+            // Verificar si el usuario tiene acceso al módulo
+            if ($user->hasModuleAccess($module)) {
+                // Registrar acceso exitoso en modo debug
+                if (config('app.debug', false)) {
+                    Log::info("Usuario {$user->id} ({$user->name}) accedió al módulo {$module}");
+                }
                 
-            if ($permission) {
                 return $next($request);
             }
             
-            // Si no tiene permiso específico, verificar si tiene permisos administrativos
-            $adminPermission = DB::table('role_module_permissions')
-                ->where('role_id', $role->id)
-                ->where('module', 'admin')
-                ->where('has_access', true)
-                ->first();
-                
-            if ($adminPermission) {
-                return $next($request);
+            // Si es una solicitud AJAX, devolver error 403
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json(['error' => 'No tienes permiso para acceder a este módulo.'], 403);
             }
             
-            // En modo debug, permitir acceso y registrar
-            if (config('app.debug')) {
-                Log::info("DEBUG MODE: Permitiendo acceso a {$module} para usuario {$user->id} con rol {$user->role}");
-                return $next($request);
-            }
+            // Registrar intento de acceso no autorizado
+            Log::warning("Usuario {$user->id} ({$user->name}) intentó acceder al módulo {$module} sin permiso");
             
-            // No tiene permisos para este módulo
-            Log::info("Usuario ID {$user->id} con rol {$role->slug} sin permiso para acceder a {$module}");
-            return redirect('/home')->with('error', 'No tienes permisos para acceder a este módulo.');
-            
+            // Redirigir a la página de acceso denegado
+            return redirect()->route('accessDenied', ['module' => $module]);
         } catch (\Exception $e) {
-            Log::error("Error al verificar permisos: " . $e->getMessage());
+            // Registrar error
+            Log::error("Error verificando permisos: " . $e->getMessage());
             
-            // En caso de error, permitimos acceso en producción pero registramos el problema
-            if (config('app.env') === 'production' || config('app.debug')) {
+            // En modo debug, permitir acceso
+            if (config('app.debug', false)) {
                 return $next($request);
             }
             
-            return redirect('/home')->with('error', 'Error al verificar permisos. Contacte al administrador.');
+            // Redirigir a la página de error
+            return redirect()->route('error', ['message' => 'Error al verificar permisos']);
+        }
+    }
+
+    /**
+     * Determinar el módulo al que pertenece una ruta basado en su nombre
+     *
+     * @param string $routeName
+     * @return string|null
+     */
+    protected function determineModuleFromRoute($routeName)
+    {
+        // Si no hay nombre de ruta, no se puede determinar el módulo
+        if (!$routeName) {
+            return null;
+        }
+        
+        try {
+            // Buscar la ruta en la base de datos
+            $route = DB::table('routes')
+                ->where('name', $routeName)
+                ->first();
+                
+            if ($route) {
+                // Obtener el módulo asociado a la ruta
+                $module = DB::table('modules')
+                    ->where('id', $route->module_id)
+                    ->first();
+                    
+                if ($module) {
+                    return $module->name;
+                }
+            }
+            
+            // Si no se encontró la ruta en la base de datos, intentar determinar
+            // el módulo a partir del prefijo del nombre de la ruta
+            $parts = explode('.', $routeName);
+            $prefix = $parts[0] ?? null;
+            
+            if (!$prefix) {
+                return null;
+            }
+            
+            // Mapeo de prefijos de rutas a nombres de módulos
+            $moduleMap = [
+                'client' => 'clientes',
+                'clients' => 'clientes',
+                'credit' => 'creditos',
+                'credits' => 'creditos',
+                'loans' => 'creditos',
+                'payment' => 'pagos',
+                'payments' => 'pagos',
+                'route' => 'rutas',
+                'routes' => 'rutas',
+                'agent' => 'agentes',
+                'agents' => 'agentes',
+                'user' => 'usuarios',
+                'users' => 'usuarios',
+                'report' => 'reportes',
+                'reports' => 'reportes',
+                'admin' => 'admin',
+                'setting' => 'configuracion',
+                'settings' => 'configuracion',
+                'dashboard' => 'dashboard',
+                'role' => 'roles',
+                'roles' => 'roles'
+            ];
+            
+            return $moduleMap[$prefix] ?? $prefix;
+        } catch (\Exception $e) {
+            // Si hay algún error, registrarlo y devolver null
+            Log::error("Error determinando módulo para la ruta {$routeName}: " . $e->getMessage());
+            return null;
         }
     }
 }

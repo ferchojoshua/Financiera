@@ -1,0 +1,159 @@
+/**
+ * Estilos para el selector de funciones
+ */
+
+.function-selector {
+    margin: 1.5rem 0;
+}
+
+.function-selector-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+/* Estilos para cada elemento de función */
+.function-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Efecto hover para las tarjetas */
+.function-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Efecto de resplandor al hacer hover */
+.function-item::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.function-item:hover::before {
+    opacity: 1;
+    animation: glowEffect 1.5s infinite;
+}
+
+/* Estilos para tema claro */
+.function-selector-light .function-item {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    color: #343a40;
+}
+
+.function-selector-light .function-item:hover {
+    background-color: #e9ecef;
+}
+
+.function-selector-light .function-item.active-function {
+    border-color: #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+/* Estilos para tema oscuro */
+.function-selector-dark .function-item {
+    background-color: #343a40;
+    border: 1px solid #495057;
+    color: #f8f9fa;
+}
+
+.function-selector-dark .function-item:hover {
+    background-color: #495057;
+}
+
+.function-selector-dark .function-item.active-function {
+    border-color: #007bff;
+    background-color: rgba(0, 123, 255, 0.2);
+}
+
+/* Iconos y texto */
+.function-icon {
+    margin-bottom: 0.75rem;
+    color: #007bff;
+    font-size: 1.5rem;
+    transition: transform 0.3s ease;
+}
+
+.function-item:hover .function-icon {
+    transform: scale(1.2);
+}
+
+.function-name {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.function-description {
+    font-size: 0.8rem;
+    color: #6c757d;
+    transition: opacity 0.3s ease;
+    opacity: 0.8;
+}
+
+.function-item:hover .function-description {
+    opacity: 1;
+}
+
+.function-selector-dark .function-description {
+    color: #adb5bd;
+}
+
+/* Estados y animaciones */
+.function-item.active-function .function-icon {
+    color: #0056b3;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.pulse {
+    animation: pulse 0.7s ease;
+}
+
+@keyframes glowEffect {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .function-selector-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+    
+    .function-item {
+        padding: 1rem 0.75rem;
+    }
+    
+    .function-name {
+        font-size: 0.9rem;
+    }
+    
+    .function-description {
+        font-size: 0.7rem;
+    }
+} 

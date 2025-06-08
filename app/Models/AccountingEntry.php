@@ -26,14 +26,15 @@ class AccountingEntry extends Model
         'loan_application_id',
         'user_id',
         'accounting_account',
-        'created_by',
         'status',
         'notes',
-        'attachment_path'
+        'attachment_path',
+        'created_by'
     ];
 
-    protected $dates = [
-        'entry_date'
+    protected $casts = [
+        'entry_date' => 'datetime',
+        'amount' => 'decimal:2'
     ];
 
     /**
@@ -41,7 +42,7 @@ class AccountingEntry extends Model
      */
     public function credit()
     {
-        return $this->belongsTo(Credit::class, 'credit_id');
+        return $this->belongsTo(Credit::class);
     }
 
     /**
@@ -61,9 +62,9 @@ class AccountingEntry extends Model
     }
 
     /**
-     * Relación con el usuario que creó la entrada
+     * Obtener el usuario que creó la entrada
      */
-    public function creator()
+    public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
     }

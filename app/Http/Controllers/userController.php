@@ -124,49 +124,13 @@ class userController extends Controller
 
     public function index()
     {
-        $user_current = Auth::user();
-
-        try {
-            $user_has_agent = db_agent_has_user::where('id_agent', Auth::id())
-                ->join('users', 'id_client', '=', 'users.id')
-                ->get();
-
-            if ($user_current->level === 'admin' || $user_current->role === 'admin' || $user_current->role === 'superadmin') {
-                $user_has_agent = db_agent_has_user::join('users', 'id_client', '=', 'users.id')
-                    ->get();
-            }
-
-            foreach ($user_has_agent as $user) {
-                if (db_credit::where('id_user', $user->id)->exists()) {
-                    $user->closed = db_credit::where('status', 'close')->where('id_user', $user->id)->count();
-                    $user->inprogress = db_credit::where('status', 'inprogress')->where('id_user', $user->id)->count();
-                    $user->credit_count = db_credit::where('id_user', $user->id)->count();
-                    $user->amount_net = db_credit::where('id_user', $user->id)
-                        ->where('status', 'inprogress')
-                        ->first();
-
-                    $user->summary_net = ($user->amount_net) ? db_summary::where('id_credit', $user->amount_net->id)
-                        ->sum('amount') : 0;
-
-                    $tmp_credit = $user->amount_net->amount_neto ?? 0;
-                    $tmp_rest = $tmp_credit - $user->summary_net;
-                    $user->summary_net = $tmp_rest;
-
-                    if($user->amount_net){
-                        $user->gap_credit = $tmp_credit * $user->amount_net->utility;
-                    }
-                }
-            }
-
-            $user_has_agent = array(
-                'clients' => $user_has_agent,
-            );
-            
-            return view('client.index', $user_has_agent);
-        } catch (\Exception $e) {
-            Log::error('Error en userController@index: ' . $e->getMessage());
-            return view('client.index', ['clients' => [], 'error' => 'Error al cargar clientes']);
-        }
+        // Obtener usuarios
+        $users = \App\Models\User::with('roles')->get();
+        
+        // Obtener roles para el filtro
+        $roles = \App\Models\Role::where('is_active', true)->get();
+        
+        return view('users.index', compact('users', 'roles'));
     }
 
     /**
@@ -342,7 +306,7 @@ class userController extends Controller
         $user = User::find($id);
         
         if (!$user) {
-            return redirect()->route('client.index')->with('error', 'Cliente no encontrado');
+            return redirect()->route('clients.index')->with('error', 'Cliente no encontrado');
         }
         
         $data = array(

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable
 {
@@ -40,6 +41,14 @@ class User extends Authenticatable
     const ROLE_CAJA = 'caja';
     const ROLE_COLECTOR = 'colector';
     const ROLE_USER = 'user'; // Cliente normal
+    
+    /**
+     * Relación muchos a muchos con roles
+     */
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id');
+    }
     
     /**
      * Verifica si se debe omitir la verificación de permisos
@@ -138,11 +147,86 @@ class User extends Authenticatable
     }
     
     /**
-     * Relación con solicitudes de crédito (para clientes)
+     * Relación con créditos como agente
      */
-    public function loanApplications()
+    public function managedCredits()
     {
-        return $this->hasMany(LoanApplication::class, 'client_id');
+        return $this->hasMany(Credit::class, 'agent_id');
+    }
+    
+    /**
+     * Relación con pagos recolectados
+     */
+    public function collectedPayments()
+    {
+        return $this->hasMany(Payment::class, 'collected_by');
+    }
+    
+    /**
+     * Relación con rutas asignadas
+     */
+    public function assignedRoutes()
+    {
+        return $this->hasMany(Route::class, 'assigned_agent_id');
+    }
+    
+    /**
+     * Relación con clientes asignados
+     */
+    public function assignedClients()
+    {
+        return $this->hasMany(Client::class, 'assigned_agent_id');
+    }
+    
+    /**
+     * Relación con créditos aprobados
+     */
+    public function approvedCredits()
+    {
+        return $this->hasMany(Credit::class, 'approved_by');
+    }
+    
+    /**
+     * Obtener estadísticas de rendimiento del agente
+     */
+    public function getPerformanceStats($startDate = null, $endDate = null)
+    {
+        if (!$startDate) {
+            $startDate = now()->startOfMonth();
+        }
+        
+        if (!$endDate) {
+            $endDate = now();
+        }
+        
+        // Monto total recolectado en el período
+        $collectedAmount = $this->collectedPayments()
+            ->whereBetween('payment_date', [$startDate, $endDate])
+            ->sum('amount');
+            
+        // Número de pagos recolectados
+        $collectedCount = $this->collectedPayments()
+            ->whereBetween('payment_date', [$startDate, $endDate])
+            ->count();
+            
+        // Créditos nuevos otorgados
+        $newCredits = $this->managedCredits()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->count();
+            
+        // Monto total de créditos otorgados
+        $totalCreditAmount = $this->managedCredits()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->sum('amount_approved');
+            
+        return [
+            'collected_amount' => $collectedAmount,
+            'collected_count' => $collectedCount,
+            'new_credits' => $newCredits,
+            'total_credit_amount' => $totalCreditAmount,
+            'period_start' => $startDate,
+            'period_end' => $endDate
+        ];
     }
     
     /**
@@ -173,40 +257,50 @@ class User extends Authenticatable
             return true;
         }
         
-        // Si es superadmin o admin, siempre tiene acceso
-        if ($this->isSuperAdmin() || $this->role === self::ROLE_ADMIN) {
+        // Si es superadmin, siempre tiene acceso
+        if ($this->isSuperAdmin()) {
             return true;
         }
         
-        // Compatibilidad con nivel de usuario (versión anterior)
-        if ($this->level === 'admin') {
+        // Si es admin, siempre tiene acceso (compatibilidad)
+        if ($this->role === self::ROLE_ADMIN || $this->level === 'admin') {
             return true;
         }
         
-        // Para menús y compatibilidad, si no está en modo estricto, permitir acceso
-        if (!config('app.strict_permissions', false)) {
+        // Verificamos el permiso en la tabla role_module_permissions
+        try {
+            // Obtenemos el ID del rol
+            $role = \App\Models\Role::where('slug', $this->role)->first();
+            
+            if ($role) {
+                // Verificar acceso en la tabla de permisos
+                $hasAccess = \DB::table('role_module_permissions')
+                    ->where('role_id', $role->id)
+                    ->where('module', $module)
+                    ->where('has_access', true)
+                    ->exists();
+                
+                return $hasAccess;
+            }
+            
+            // Compatibilidad con versiones anteriores
+            if (in_array($this->role, ['admin', 'superadmin']) || $this->level === 'admin') {
             return true;
         }
         
-        // Obtenemos el rol del usuario
-        $role = $this->userRole;
-        
-        if (!$role) {
-            // Intentar obtener rol directamente de la base de datos
-            try {
-                $roleModel = \App\Models\Role::where('slug', $this->role)->first();
-                if ($roleModel) {
-                    return $roleModel->hasModuleAccess($module);
-                }
-            } catch (\Exception $e) {
-                \Log::error("Error al obtener rol: " . $e->getMessage());
+            // Modo debug - permitir acceso
+            if (config('app.debug', false)) {
+                \Log::info("DEBUG MODE: Permitiendo acceso a {$module} para usuario {$this->id} con rol {$this->role}");
+                return true;
             }
             
             return false;
+        } catch (\Exception $e) {
+            \Log::error("Error al verificar permisos: " . $e->getMessage());
+            
+            // En caso de error, permitir acceso en modo debug
+            return config('app.debug', false);
         }
-        
-        // Verificamos si el rol tiene acceso al módulo
-        return $role->hasModuleAccess($module);
     }
     
     /**

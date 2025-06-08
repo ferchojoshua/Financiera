@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Wallet extends Model
 {
@@ -240,5 +242,37 @@ class Wallet extends Model
     {
         $this->legacy_id = $legacyId;
         return $this->save();
+    }
+
+    /**
+     * Relación con los créditos
+     */
+    public function credits(): HasMany
+    {
+        return $this->hasMany(Credit::class, 'id_wallet');
+    }
+
+    /**
+     * Relación con la sucursal
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * Relación con el usuario que creó la cartera
+     */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Relación con el usuario que actualizó la cartera
+     */
+    public function updatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 } 

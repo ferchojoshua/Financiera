@@ -35,6 +35,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\FixCsrfToken::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\ForceLayoutMiddleware::class,
         ],
 
         'api' => [
@@ -68,5 +69,6 @@ class Kernel extends HttpKernel
         'module' => \App\Http\Middleware\CheckModuleAccess::class,
         'admin.force' => \App\Http\Middleware\ForceAdminAccess::class,
         'bypass.permissions' => \App\Http\Middleware\BypassPermissionsMiddleware::class,
+        'auth.module' => \App\Http\Middleware\CheckModuleAccess::class,
     ];
 }
