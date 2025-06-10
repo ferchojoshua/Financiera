@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\User;
+use Illuminate\Support\Facades\DB;
 
 class Route extends Model
 {
@@ -90,7 +91,22 @@ class Route extends Model
      */
     public function supervisor()
     {
-        return $this->belongsTo(User::class, 'supervisor_id');
+        return $this->belongsTo(User::class, 'collector_id')
+            ->join('agent_has_supervisor', 'users.id', '=', 'agent_has_supervisor.id_user_agent')
+            ->join('users as supervisor', 'agent_has_supervisor.id_supervisor', '=', 'supervisor.id')
+            ->select('supervisor.*');
+    }
+
+    /**
+     * Obtener el ID del supervisor
+     */
+    public function getSupervisorIdAttribute()
+    {
+        $relation = DB::table('agent_has_supervisor')
+            ->where('id_user_agent', $this->collector_id)
+            ->first();
+            
+        return $relation ? $relation->id_supervisor : null;
     }
 
     /**

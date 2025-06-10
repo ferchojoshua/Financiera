@@ -2,13 +2,23 @@
 // Función auxiliar para verificar acceso a módulos
 $hasAccess = function($module) {
     $user = Auth::user();
-    if ($user->isSuperAdmin()) {
+    
+    // Si es superadmin, tiene acceso a todo
+    if ($user->role === 'superadmin' || $user->level === 'admin') {
         return true;
     }
-    if (method_exists($user, 'hasModuleAccess')) {
-        return $user->hasModuleAccess($module);
+
+    // Verificar en la tabla role_module_permissions
+    $roleId = DB::table('roles')->where('slug', $user->role)->value('id');
+    if ($roleId) {
+        return DB::table('role_module_permissions')
+            ->where('role_id', $roleId)
+            ->where('module', $module)
+            ->where('has_access', 1)
+            ->exists();
     }
-    return in_array($user->role, ['admin', 'superadmin']) || $user->level === 'admin';
+
+    return false;
 };
 ?>
 

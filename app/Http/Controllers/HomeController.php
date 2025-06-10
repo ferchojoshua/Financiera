@@ -35,59 +35,27 @@ class HomeController extends Controller
     {
         $user = Auth::user();
         
-        // Variables básicas para la vista
-        $data = [
-            'close_day' => false,
-            'totalRecuperado' => 0,
-            'totalMorosos' => 0,
-            'porcentajeRecuperacion' => '0%',
-            'clientesActivos' => 0,
-            'ultimosPagos' => [],
-            'morososRecientes' => [],
-            'totalDesembolsado' => 0,
-            'comparativaRecuperacion' => 0,
-            'base_agent' => 0,
-            'total_bill' => 0,
-            'total_summary' => 0
-        ];
+        // Verificar el rol del usuario y obtener las estadísticas correspondientes
+        if ($user->role === 'supervisor') {
+            $stats = $this->getSupervisorStats($user->id);
+        } elseif ($user->role === 'agent') {
+            $stats = $this->getAgentStats($user->id);
+        } else {
+            $stats = $this->getAdminStats();
+        }
 
         // Verificar si se ha cerrado el día (para agentes)
-        if ($user->role == 'agent') {
-            $data['close_day'] = $this->checkDayClosed($user->id);
-            
-            // Obtener información de base y resumen para agentes
-            $base = Wallet::where('id_agent', $user->id)
-                ->first();
-            
-            if ($base) {
-                $data['base_agent'] = $base->base;
-                
-                // Calcular gastos del día
-                $data['total_bill'] = Bill::where('id_agent', $user->id)
-                    ->whereDate('created_at', Carbon::now()->toDateString())
-                    ->sum('amount');
-                
-                // Calcular cobros del día
-                $data['total_summary'] = Summary::where('id_agent', $user->id)
-                    ->whereDate('created_at', Carbon::now()->toDateString())
-                    ->sum('amount');
-            }
-            
-            $agentStats = $this->getAgentStats($user->id);
-            $data = array_merge($data, $agentStats);
-        } 
-        // Estadísticas para supervisores
-        elseif ($user->role == 'supervisor') {
-            $supervisorStats = $this->getSupervisorStats($user->id);
-            $data = array_merge($data, $supervisorStats);
-        } 
-        // Estadísticas para administradores
-        elseif ($user->level == 'admin' || $user->level == 'superadmin') {
-            $adminStats = $this->getAdminStats();
-            $data = array_merge($data, $adminStats);
+        $close_day = false;
+        if ($user->role === 'agent') {
+            $today = Carbon::now()->format('Y-m-d');
+            $close_day = DB::table('close_day')
+                ->where('id_agent', $user->id)
+                ->whereDate('created_at', $today)
+                ->exists();
         }
-        
-        return view('home', $data);
+
+        // Combinar las estadísticas con la variable de cierre del día
+        return view('home', array_merge($stats, ['close_day' => $close_day]));
     }
 
     /**
@@ -118,11 +86,6 @@ class HomeController extends Controller
         $totalDesembolsado = Credit::whereBetween('created_at', [$startOfMonth, $today])
             ->sum('amount_neto');
             
-        // Comparativa recuperación vs desembolso
-        $comparativaRecuperacion = $totalDesembolsado > 0 
-            ? round(($totalRecuperado / $totalDesembolsado) * 100, 2)
-            : 0;
-
         // Total de morosos
         $creditosMorosos = Credit::where('status', 'inprogress')
             ->whereRaw('DATEDIFF(NOW(), updated_at) > 7')
@@ -132,14 +95,14 @@ class HomeController extends Controller
 
         // Porcentaje de recuperación
         $porcentajeRecuperacion = $totalDesembolsado > 0 
-            ? round(($totalRecuperado / $totalDesembolsado) * 100, 2) . '%'
-            : '0%';
+            ? round(($totalRecuperado / $totalDesembolsado) * 100, 2)
+            : 0;
 
         // Clientes activos
         $clientesActivos = Credit::where('status', 'inprogress')
             ->count();
 
-        // Últimos pagos - Corregido
+        // Últimos pagos
         $ultimosPagos = DB::table('summary')
             ->select('summary.amount as monto', 'summary.created_at as fecha', 'users.name as cliente')
             ->join('credit', 'summary.id_credit', '=', 'credit.id')
@@ -147,11 +110,6 @@ class HomeController extends Controller
             ->orderBy('summary.created_at', 'desc')
             ->limit(5)
             ->get();
-
-        if (count($ultimosPagos) == 0) {
-            // Si no hay resultados, dejamos un array vacío
-            $ultimosPagos = [];
-        }
             
         // Morosos recientes
         $morososRecientes = [];
@@ -173,7 +131,6 @@ class HomeController extends Controller
         return [
             'totalRecuperado' => $totalRecuperado,
             'totalDesembolsado' => $totalDesembolsado,
-            'comparativaRecuperacion' => $comparativaRecuperacion,
             'totalMorosos' => $totalMorosos,
             'porcentajeRecuperacion' => $porcentajeRecuperacion,
             'clientesActivos' => $clientesActivos,
@@ -187,8 +144,11 @@ class HomeController extends Controller
         $today = Carbon::now();
         $startOfMonth = Carbon::now()->startOfMonth();
 
-        // Obtener agentes supervisados
-        $agentIds = User::where('supervisor_id', $userId)->pluck('id')->toArray();
+        // Obtener los IDs de los agentes supervisados
+        $agentIds = DB::table('agent_has_supervisor')
+            ->where('id_supervisor', $userId)
+            ->pluck('id_user_agent')
+            ->toArray();
 
         // Total recuperado del mes por agentes supervisados
         $totalRecuperado = Payment::whereIn('id_agent', $agentIds)
@@ -200,11 +160,6 @@ class HomeController extends Controller
             ->whereBetween('created_at', [$startOfMonth, $today])
             ->sum('amount_neto');
             
-        // Comparativa recuperación vs desembolso
-        $comparativaRecuperacion = $totalDesembolsado > 0 
-            ? round(($totalRecuperado / $totalDesembolsado) * 100, 2)
-            : 0;
-
         // Total de morosos
         $creditosMorosos = Credit::whereIn('id_agent', $agentIds)
             ->where('status', 'inprogress')
@@ -215,15 +170,15 @@ class HomeController extends Controller
 
         // Porcentaje de recuperación
         $porcentajeRecuperacion = $totalDesembolsado > 0 
-            ? round(($totalRecuperado / $totalDesembolsado) * 100, 2) . '%'
-            : '0%';
+            ? round(($totalRecuperado / $totalDesembolsado) * 100, 2)
+            : 0;
 
         // Clientes activos
         $clientesActivos = Credit::whereIn('id_agent', $agentIds)
             ->where('status', 'inprogress')
             ->count();
 
-        // Últimos pagos - Corregido
+        // Últimos pagos
         $ultimosPagos = DB::table('summary')
             ->select('summary.amount as monto', 'summary.created_at as fecha', 'users.name as cliente')
             ->join('credit', 'summary.id_credit', '=', 'credit.id')
@@ -253,7 +208,6 @@ class HomeController extends Controller
         return [
             'totalRecuperado' => $totalRecuperado,
             'totalDesembolsado' => $totalDesembolsado,
-            'comparativaRecuperacion' => $comparativaRecuperacion,
             'totalMorosos' => $totalMorosos,
             'porcentajeRecuperacion' => $porcentajeRecuperacion,
             'clientesActivos' => $clientesActivos,
@@ -277,11 +231,6 @@ class HomeController extends Controller
             ->whereBetween('created_at', [$startOfMonth, $today])
             ->sum('amount_neto');
             
-        // Comparativa recuperación vs desembolso
-        $comparativaRecuperacion = $totalDesembolsado > 0 
-            ? round(($totalRecuperado / $totalDesembolsado) * 100, 2)
-            : 0;
-
         // Total de morosos
         $creditosMorosos = Credit::where('id_agent', $userId)
             ->where('status', 'inprogress')
@@ -292,15 +241,15 @@ class HomeController extends Controller
 
         // Porcentaje de recuperación
         $porcentajeRecuperacion = $totalDesembolsado > 0 
-            ? round(($totalRecuperado / $totalDesembolsado) * 100, 2) . '%'
-            : '0%';
+            ? round(($totalRecuperado / $totalDesembolsado) * 100, 2)
+            : 0;
 
         // Clientes activos
         $clientesActivos = Credit::where('id_agent', $userId)
             ->where('status', 'inprogress')
             ->count();
 
-        // Últimos pagos - Corregido
+        // Últimos pagos
         $ultimosPagos = DB::table('summary')
             ->select('summary.amount as monto', 'summary.created_at as fecha', 'users.name as cliente')
             ->join('credit', 'summary.id_credit', '=', 'credit.id')
@@ -330,7 +279,6 @@ class HomeController extends Controller
         return [
             'totalRecuperado' => $totalRecuperado,
             'totalDesembolsado' => $totalDesembolsado,
-            'comparativaRecuperacion' => $comparativaRecuperacion,
             'totalMorosos' => $totalMorosos,
             'porcentajeRecuperacion' => $porcentajeRecuperacion,
             'clientesActivos' => $clientesActivos,

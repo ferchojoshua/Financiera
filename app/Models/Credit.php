@@ -26,28 +26,27 @@ class Credit extends Model
      */
     protected $fillable = [
         'client_id',
-        'loan_application_id',
-        'credit_type_id',
-        'amount',
-        'term_months',
-        'interest_rate',
-        'payment_frequency',
-        'status',
-        'start_date',
-        'created_by',
+        'id_user',
         'credit_number',
-        'id_agent',
+        'amount',
         'amount_requested',
         'amount_approved',
-        'first_payment_date',
-        'notes',
+        'payment_number',
+        'status',
+        'loan_application_id',
+        'interest_rate',
+        'credit_type',
+        'id_agent',
         'approved_by',
         'approved_at',
+        'first_payment_date',
+        'notes',
+        'id_wallet',
+        'route_id',
         'cancelled_at',
         'cancelled_by',
         'cancellation_reason',
-        'route_id',
-        'id_wallet'
+        'payment_frequency'
     ];
 
     /**
@@ -80,7 +79,7 @@ class Credit extends Model
      */
     public function client(): BelongsTo
     {
-        return $this->belongsTo(Client::class, 'client_id');
+        return $this->belongsTo(User::class, 'client_id');
     }
 
     /**
@@ -177,18 +176,47 @@ class Credit extends Model
             return false;
         }
 
-        $totalAmount = $this->total_amount;
-        $installmentAmount = $totalAmount / $this->term;
-        $currentDate = $this->first_payment_date;
+        // Calcular monto de cada cuota
+        $totalAmount = $this->amount_approved;
+        $interestRate = $this->interest_rate / 100; // Convertir a decimal
+        $term = $this->payment_number;
+        
+        // Calcular tasa de interés por período según frecuencia de pago
+        $periodsPerYear = $this->getPeriodsPerYear();
+        $ratePerPeriod = $interestRate / $periodsPerYear;
+        
+        // Calcular cuota usando fórmula de amortización
+        $payment = $totalAmount * $ratePerPeriod * pow(1 + $ratePerPeriod, $term) / (pow(1 + $ratePerPeriod, $term) - 1);
+        
+        // Establecer fecha del primer pago
+        $currentDate = $this->first_payment_date ?? now()->addDays(30);
+        $balance = $totalAmount;
 
-        for ($i = 0; $i < $this->term; $i++) {
+        for ($i = 0; $i < $term; $i++) {
+            // Calcular interés y principal para este pago
+            $interest = $balance * $ratePerPeriod;
+            $principal = $payment - $interest;
+            
+            // Ajustar el último pago para evitar decimales
+            if ($i === $term - 1) {
+                $principal = $balance;
+                $payment = $principal + $interest;
+            }
+            
+            // Crear el pago programado
             $this->payments()->create([
+                'installment_number' => $i + 1,
                 'due_date' => $currentDate,
-                'amount' => round($installmentAmount, 2),
-                'status' => 'pending',
-                'installment_number' => $i + 1
+                'amount' => round($payment, 2),
+                'principal' => round($principal, 2),
+                'interest' => round($interest, 2),
+                'balance' => round($balance - $principal, 2),
+                'status' => 'pending'
             ]);
 
+            // Actualizar balance y fecha para el siguiente pago
+            $balance -= $principal;
+            
             // Calcular próxima fecha según frecuencia de pago
             switch ($this->payment_frequency) {
                 case 'daily':
@@ -201,14 +229,30 @@ class Credit extends Model
                     $currentDate = $currentDate->addDays(15);
                     break;
                 case 'monthly':
-                    $currentDate = $currentDate->addMonth();
-                    break;
                 default:
                     $currentDate = $currentDate->addMonth();
             }
         }
 
         return true;
+    }
+
+    /**
+     * Obtener número de períodos por año según frecuencia de pago
+     */
+    private function getPeriodsPerYear()
+    {
+        switch ($this->payment_frequency) {
+            case 'daily':
+                return 360; // Usando año comercial
+            case 'weekly':
+                return 52;
+            case 'biweekly':
+                return 24;
+            case 'monthly':
+            default:
+                return 12;
+        }
     }
 
     /**

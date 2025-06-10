@@ -262,44 +262,24 @@ class User extends Authenticatable
             return true;
         }
         
-        // Si es admin, siempre tiene acceso (compatibilidad)
-        if ($this->role === self::ROLE_ADMIN || $this->level === 'admin') {
-            return true;
-        }
-        
-        // Verificamos el permiso en la tabla role_module_permissions
         try {
-            // Obtenemos el ID del rol
+            // Obtener el rol del usuario
             $role = \App\Models\Role::where('slug', $this->role)->first();
             
-            if ($role) {
-                // Verificar acceso en la tabla de permisos
-                $hasAccess = \DB::table('role_module_permissions')
-                    ->where('role_id', $role->id)
-                    ->where('module', $module)
-                    ->where('has_access', true)
-                    ->exists();
+            if (!$role) {
+                return false;
+            }
+            
+            // Verificar acceso en la tabla de permisos
+            return DB::table('role_module_permissions')
+                ->where('role_id', $role->id)
+                ->where('module', $module)
+                ->where('has_access', true)
+                ->exists();
                 
-                return $hasAccess;
-            }
-            
-            // Compatibilidad con versiones anteriores
-            if (in_array($this->role, ['admin', 'superadmin']) || $this->level === 'admin') {
-            return true;
-        }
-        
-            // Modo debug - permitir acceso
-            if (config('app.debug', false)) {
-                \Log::info("DEBUG MODE: Permitiendo acceso a {$module} para usuario {$this->id} con rol {$this->role}");
-                return true;
-            }
-            
-            return false;
         } catch (\Exception $e) {
             \Log::error("Error al verificar permisos: " . $e->getMessage());
-            
-            // En caso de error, permitir acceso en modo debug
-            return config('app.debug', false);
+            return false;
         }
     }
     
@@ -324,8 +304,8 @@ class User extends Authenticatable
             return true;
         }
         
-        // Si es administrador, tiene todos los permisos
-        if ($this->role === 'admin') {
+        // Si es superadmin o admin, tiene todos los permisos
+        if ($this->role === 'superadmin' || $this->role === 'admin' || $this->level === 'admin') {
             return true;
         }
         
@@ -341,5 +321,69 @@ class User extends Authenticatable
         }
         
         return in_array($permission, $userPermissions);
+    }
+
+    /**
+     * Obtener los agentes supervisados por este usuario
+     */
+    public function supervisedAgents()
+    {
+        return $this->belongsToMany(User::class, 'agent_has_supervisor', 'id_supervisor', 'id_user_agent')
+            ->withPivot('base', 'id_wallet')
+            ->withTimestamps();
+    }
+
+    /**
+     * Obtener el supervisor de este usuario (si es agente)
+     */
+    public function supervisor()
+    {
+        return $this->belongsToMany(User::class, 'agent_has_supervisor', 'id_user_agent', 'id_supervisor')
+            ->withPivot('base', 'id_wallet')
+            ->withTimestamps();
+    }
+
+    /**
+     * Obtener la relación agente-supervisor
+     */
+    public function agentSupervisorRelation()
+    {
+        return $this->hasOne('App\db_supervisor_has_agent', 'id_user_agent');
+    }
+
+    /**
+     * Obtener los usuarios supervisados por este supervisor
+     */
+    public function supervisedUsers()
+    {
+        return $this->belongsToMany(User::class, 'agent_has_supervisor', 'id_supervisor', 'id_user_agent')
+            ->withPivot('base', 'id_wallet')
+            ->withTimestamps();
+    }
+
+    /**
+     * Obtener el supervisor de este usuario
+     */
+    public function supervisors()
+    {
+        return $this->belongsToMany(User::class, 'agent_has_supervisor', 'id_user_agent', 'id_supervisor')
+            ->withPivot('base', 'id_wallet')
+            ->withTimestamps();
+    }
+
+    /**
+     * Verifica si el usuario tiene un supervisor asignado
+     */
+    public function hasSupervisor()
+    {
+        return $this->agentSupervisorRelation()->exists();
+    }
+
+    /**
+     * Verifica si el usuario es supervisor de un agente específico
+     */
+    public function isSupervisorOf($agentId)
+    {
+        return $this->supervisedUsers()->where('id_user_agent', $agentId)->exists();
     }
 } 

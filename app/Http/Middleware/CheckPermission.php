@@ -22,7 +22,15 @@ class CheckPermission
             return redirect()->route('login');
         }
 
-        if (!Auth::user()->hasPermission($permission)) {
+        $user = Auth::user();
+
+        // Si es superadmin, permitir acceso
+        if ($user->role === 'superadmin' || $user->level === 'admin') {
+            return $next($request);
+        }
+
+        // Para otros roles, verificar el permiso específico
+        if (!$user->hasPermission($permission)) {
             return redirect()->route('home')->with('error', 'No tienes permisos para acceder a esta sección.');
         }
 

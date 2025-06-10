@@ -26,6 +26,8 @@ class PymesController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
+        $this->middleware('permission:approve-loans')->only(['solicitudesApprove']);
+        $this->middleware('permission:reject-loans')->only(['solicitudesReject']);
     }
 
     /**
@@ -172,7 +174,7 @@ class PymesController extends Controller
      */
     public function solicitudesShow($id)
     {
-        $solicitud = LoanApplication::with(['client', 'analyst', 'documents'])
+        $solicitud = LoanApplication::with(['client', 'analyst', 'documents', 'credit'])
                                   ->findOrFail($id);
                                   
         return view('pymes.solicitudes.show', compact('solicitud'));
@@ -230,33 +232,22 @@ class PymesController extends Controller
                 // Crear el crédito
                 $credit = new Credit();
                 $credit->client_id = $solicitud->client_id;
-                $credit->id_user = $solicitud->client_id; // Campo requerido
+                $credit->id_user = $solicitud->client_id;
                 $credit->credit_number = $creditNumber;
-                $credit->amount_requested = $solicitud->amount_requested;
+                $credit->amount = $solicitud->amount_requested;
                 $credit->amount_approved = $solicitud->amount_requested;
-                $credit->amount = $solicitud->amount_requested; // Campo requerido, default 0.00
-                $credit->amount_neto = $solicitud->amount_requested; // Campo requerido, default 0.00
-                $credit->payment_frequency = $solicitud->payment_frequency ?? 'monthly';
-                $credit->payment_type = $solicitud->payment_frequency ?? 'monthly';
                 $credit->payment_number = $solicitud->term_months;
-                $credit->first_payment_date = now()->addDays(30);
-                $credit->first_pay = now()->addDays(30);
-                $credit->status = 'inprogress'; // Valor por defecto en la BD
-                $credit->approval_date = now();
-                $credit->created_by = auth()->id();
-                $credit->branch_id = auth()->user()->branch_id ?? null;
-                $credit->notes = $request->approval_notes;
-                $credit->is_overdue = 0; // Campo requerido, default 0
-                
-                \Log::info('Intentando guardar crédito', [
-                    'credit_data' => $credit->toArray()
-                ]);
-                
+                $credit->interest_rate = $solicitud->interest_rate;
+                $credit->payment_frequency = 'monthly';
+                $credit->first_payment_date = now()->addMonth();
+                $credit->status = 'active';
+                $credit->approved_by = auth()->id();
+                $credit->approved_at = now();
                 $credit->save();
 
-                \Log::info('Crédito guardado', [
-                    'credit_id' => $credit->id
-                ]);
+                // Actualizar la solicitud con el ID del crédito
+                $solicitud->credit_id = $credit->id;
+                $solicitud->save();
 
                 // Registrar la acción en el historial
                 $solicitud->history()->create([
@@ -285,7 +276,7 @@ class PymesController extends Controller
                 'redirect' => route('pymes.solicitudes.show', $id)
             ];
 
-            if ($request->wantsJson()) {
+            if ($request->wantsJson() || $request->ajax()) {
                 return response()->json($response);
             }
 
@@ -305,7 +296,7 @@ class PymesController extends Controller
                 'message' => 'Error al aprobar la solicitud: ' . $e->getMessage()
             ];
 
-            if ($request->wantsJson()) {
+            if ($request->wantsJson() || $request->ajax()) {
                 return response()->json($response, 422);
             }
             
@@ -356,7 +347,7 @@ class PymesController extends Controller
                 'redirect' => route('pymes.solicitudes.show', $id)
             ];
 
-            if ($request->wantsJson()) {
+            if ($request->wantsJson() || $request->ajax()) {
                 return response()->json($response);
             }
 
@@ -372,7 +363,7 @@ class PymesController extends Controller
                 'message' => 'Error al rechazar la solicitud: ' . $e->getMessage()
             ];
 
-            if ($request->wantsJson()) {
+            if ($request->wantsJson() || $request->ajax()) {
                 return response()->json($response, 422);
             }
 
@@ -1075,17 +1066,24 @@ class PymesController extends Controller
                     $solicitud->save();
 
                     // Crear el crédito
-                    $credit = Credit::create([
-                        'client_id' => $solicitud->client_id,
-                        'loan_application_id' => $solicitud->id,
-                        'amount' => $solicitud->amount_requested,
-                        'term_months' => $solicitud->term_months,
-                        'interest_rate' => $solicitud->interest_rate,
-                        'payment_frequency' => $solicitud->payment_frequency ?? 'monthly',
-                        'status' => 'active',
-                        'start_date' => now(),
-                        'created_by' => auth()->id(),
-                    ]);
+                    $credit = new Credit();
+                    $credit->client_id = $solicitud->client_id;
+                    $credit->id_user = $solicitud->client_id;
+                    $credit->credit_number = $creditNumber;
+                    $credit->amount = $solicitud->amount_requested;
+                    $credit->amount_approved = $solicitud->amount_requested;
+                    $credit->payment_number = $solicitud->term_months;
+                    $credit->interest_rate = $solicitud->interest_rate;
+                    $credit->payment_frequency = 'monthly';
+                    $credit->first_payment_date = now()->addMonth();
+                    $credit->status = 'active';
+                    $credit->approved_by = auth()->id();
+                    $credit->approved_at = now();
+                    $credit->save();
+
+                    // Actualizar la solicitud con el ID del crédito
+                    $solicitud->credit_id = $credit->id;
+                    $solicitud->save();
 
                     // Generar plan de pagos
                     $credit->generatePaymentSchedule();

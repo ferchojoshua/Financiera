@@ -138,8 +138,7 @@ a:hover, a:focus {
     position: relative;
     float: right;
     width: calc(100% - 260px);
-    min-height: 100vh;
-    background-color: #EEEEEE;
+    transition: 0.33s, cubic-bezier(0.685, 0.0473, 0.346, 1);
 }
 
 /* Content */
@@ -151,8 +150,9 @@ a:hover, a:focus {
 
 /* Navbar */
 .navbar {
+    margin-bottom: 0;
     border: 0;
-    border-radius: 3px;
+    border-radius: 0;
     padding: 0.625rem 0;
     margin-bottom: 20px;
     color: #555;
@@ -163,10 +163,10 @@ a:hover, a:focus {
 .navbar .navbar-brand {
     color: #555;
     height: 50px;
+    padding: 0.625rem 0;
+    margin-left: 1rem;
     font-size: 18px;
-    line-height: 20px;
-    padding: 15px 15px;
-    font-weight: 300;
+    line-height: 30px;
 }
 
 .navbar-transparent {
@@ -182,15 +182,16 @@ a:hover, a:focus {
 /* Footer */
 .footer {
     padding: 15px 0;
-    text-align: center;
+    border-top: 1px solid #e7e7e7;
 }
 
 .footer .copyright {
-    padding: 15px 0;
+    padding: 15px;
+    font-size: 14px;
     margin: 0;
 }
 
-/* Card */
+/* Cards */
 .card {
     border: 0;
     margin-bottom: 30px;
@@ -203,20 +204,33 @@ a:hover, a:focus {
 }
 
 .card .card-header {
-    padding: 15px 20px 0;
-    z-index: 3;
-    border-bottom: 0;
-    background-color: transparent;
+    border-radius: 3px;
+    padding: 1rem 15px;
+    margin-left: 15px;
+    margin-right: 15px;
+    margin-top: -30px;
+    border: 0;
+    background: linear-gradient(60deg, #ab47bc, #8e24aa);
 }
 
 .card .card-header-primary {
     background: linear-gradient(60deg, #ab47bc, #8e24aa);
-    box-shadow: 0 5px 20px 0px rgba(0, 0, 0, 0.2), 0 13px 24px -11px rgba(156, 39, 176, 0.6);
 }
 
-.card .card-header-primary .card-title,
-.card .card-header-primary .card-category {
-    color: #fff;
+.card .card-header-info {
+    background: linear-gradient(60deg, #26c6da, #00acc1);
+}
+
+.card .card-header-success {
+    background: linear-gradient(60deg, #66bb6a, #43a047);
+}
+
+.card .card-header-warning {
+    background: linear-gradient(60deg, #ffa726, #fb8c00);
+}
+
+.card .card-header-danger {
+    background: linear-gradient(60deg, #ef5350, #e53935);
 }
 
 .card .card-title {
@@ -475,7 +489,19 @@ label {
     }
     
     .sidebar {
-        display: none;
+        position: fixed;
+        display: block;
+        top: 0;
+        height: 100vh;
+        width: 260px;
+        right: auto;
+        left: 0;
+        visibility: visible;
+        overflow-y: visible;
+        padding: 0;
+        background-color: #9A9A9A;
+        transform: translate3d(-260px, 0, 0);
+        transition: all 0.33s cubic-bezier(0.685, 0.0473, 0.346, 1);
     }
 }
 

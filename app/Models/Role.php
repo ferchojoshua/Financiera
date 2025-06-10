@@ -85,35 +85,44 @@ class Role extends Model
      */
     public function hasModuleAccess($module)
     {
-        // Si es superadmin o admin, siempre tiene acceso a todos los módulos
-        if ($this->slug === 'superadmin' || $this->slug === 'admin') {
+        // Si es superadmin, siempre tiene acceso a todos los módulos
+        if ($this->slug === 'superadmin') {
             return true;
         }
         
-        // Compatibilidad con versiones anteriores del sistema
-        if (in_array($module, ['routes', 'cash', 'reports', 'collection', 'clients', 'config', 'pymes', 'security'])) {
-            // Verificar permiso en tabla de permisos por módulo
-            $hasAccess = \DB::table('role_module_permissions')
-                ->where('role_id', $this->id)
-                ->where('module', $module)
-                ->where('has_access', true)
-                ->exists();
-                
-            if ($hasAccess) {
-                return true;
-            }
-            
-            // Si no encuentra permiso específico, verificar permisos globales
-            $adminAccess = \DB::table('role_module_permissions')
-                ->where('role_id', $this->id)
-                ->where('module', 'admin')
-                ->where('has_access', true)
-                ->exists();
-                
-            return $adminAccess;
+        // Verificar permiso en tabla de permisos por módulo
+        return \DB::table('role_module_permissions')
+            ->where('role_id', $this->id)
+            ->where('module', $module)
+            ->where('has_access', true)
+            ->exists();
+    }
+
+    /**
+     * Asigna permisos de módulo de manera segura evitando duplicados
+     */
+    public function assignModulePermission($module, $hasAccess = false)
+    {
+        return \DB::table('role_module_permissions')
+            ->updateOrInsert(
+                [
+                    'role_id' => $this->id,
+                    'module' => $module
+                ],
+                [
+                    'has_access' => $hasAccess,
+                    'updated_at' => now()
+                ]
+            );
+    }
+
+    /**
+     * Asigna múltiples permisos de módulo de manera segura
+     */
+    public function assignModulePermissions(array $permissions)
+    {
+        foreach ($permissions as $module => $hasAccess) {
+            $this->assignModulePermission($module, $hasAccess);
         }
-        
-        // Si no es un módulo estándar, permitir acceso por defecto
-        return true;
     }
 } 

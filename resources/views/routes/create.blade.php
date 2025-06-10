@@ -91,17 +91,15 @@
                                 <div class="form-group">
                                     <label for="supervisor_id">Supervisor</label>
                                     <select name="supervisor_id" class="form-select @error('supervisor_id') is-invalid @enderror" id="supervisor_id">
-                                        <option value="">Seleccione un supervisor</option>
+                                        <option value="">Seleccionar supervisor</option>
                                         @foreach($supervisors as $supervisor)
                                             <option value="{{ $supervisor->id }}" {{ old('supervisor_id') == $supervisor->id ? 'selected' : '' }}>
-                                                {{ $supervisor->name }}
+                                                {{ $supervisor->name }} {{ $supervisor->last_name ?? '' }}
                                             </option>
                                         @endforeach
                                     </select>
                                     @error('supervisor_id')
-                                        <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $message }}</strong>
-                                        </span>
+                                        <span class="invalid-feedback">{{ $message }}</span>
                                     @enderror
                                 </div>
                             </div>

@@ -66,7 +66,12 @@
                                 <select class="form-control @error('supervisor_id') is-invalid @enderror" id="supervisor_id" name="supervisor_id">
                                     <option value="">Seleccionar supervisor</option>
                                     @foreach($supervisors as $supervisor)
-                                        <option value="{{ $supervisor->id }}" {{ old('supervisor_id', $route->supervisor_id) == $supervisor->id ? 'selected' : '' }}>
+                                        @php
+                                            $currentSupervisorId = DB::table('agent_has_supervisor')
+                                                ->where('id_user_agent', $route->collector_id)
+                                                ->value('id_supervisor');
+                                        @endphp
+                                        <option value="{{ $supervisor->id }}" {{ old('supervisor_id', $currentSupervisorId) == $supervisor->id ? 'selected' : '' }}>
                                             {{ $supervisor->name }} {{ $supervisor->last_name ?? '' }}
                                         </option>
                                     @endforeach

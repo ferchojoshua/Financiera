@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Credit;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -143,9 +144,7 @@ class CreditController extends Controller
                 ->with('error', 'Solo se pueden editar créditos en progreso.');
         }
         
-        $clients = User::where('role', 'user')
-            ->orderBy('name')
-            ->get();
+        $clients = Client::orderBy('name')->get();
             
         $wallets = Wallet::where('status', 'activa')
             ->get();
@@ -163,7 +162,7 @@ class CreditController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'id_user' => 'required|exists:users,id',
+            'client_id' => 'required|exists:clients,id',
             'id_wallet' => 'required|exists:db_wallet,id',
             'amount' => 'required|numeric|min:1',
             'utility' => 'required|numeric|min:0',
@@ -183,7 +182,7 @@ class CreditController extends Controller
             $paymentAmount = $amountNeto / $request->payment_number;
             
             // Actualizar el crédito
-            $credit->id_user = $request->id_user;
+            $credit->client_id = $request->client_id;
             $credit->id_wallet = $request->id_wallet;
             $credit->amount = $request->amount;
             $credit->amount_neto = $amountNeto;

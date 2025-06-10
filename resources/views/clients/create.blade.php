@@ -12,8 +12,8 @@
                 </div>
                 
                 @if ($errors->any())
-                    <div class="alert alert-danger">
-                        <ul>
+                    <div class="alert alert-danger mx-3">
+                        <ul class="mb-0">
                             @foreach ($errors->all() as $error)
                                 <li>{{ $error }}</li>
                             @endforeach
@@ -33,8 +33,8 @@
                             </div>
                             
                             <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="name">Nombre *</label>
+                                <div class="form-group mb-3">
+                                    <label for="name" class="form-label">Nombre *</label>
                                     <input type="text" class="form-control @error('name') is-invalid @enderror" 
                                            id="name" name="name" value="{{ old('name') }}" required>
                                     @error('name')
@@ -44,8 +44,8 @@
                             </div>
 
                             <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="last_name">Apellidos</label>
+                                <div class="form-group mb-3">
+                                    <label for="last_name" class="form-label">Apellidos</label>
                                     <input type="text" class="form-control @error('last_name') is-invalid @enderror" 
                                            id="last_name" name="last_name" value="{{ old('last_name') }}">
                                     @error('last_name')
@@ -53,10 +53,10 @@
                                     @enderror
                                 </div>
                             </div>
-                            
+
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="nit">Cédula/NIT *</label>
+                                <div class="form-group mb-3">
+                                    <label for="nit" class="form-label">Cédula/NIT *</label>
                                     <input type="text" class="form-control @error('nit') is-invalid @enderror" 
                                            id="nit" name="nit" value="{{ old('nit') }}" required>
                                     @error('nit')
@@ -64,10 +64,10 @@
                                     @enderror
                                 </div>
                             </div>
-                            
+
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="phone">Teléfono *</label>
+                                <div class="form-group mb-3">
+                                    <label for="phone" class="form-label">Teléfono *</label>
                                     <input type="text" class="form-control @error('phone') is-invalid @enderror" 
                                            id="phone" name="phone" value="{{ old('phone') }}" required>
                                     @error('phone')
@@ -75,24 +75,22 @@
                                     @enderror
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="address">Dirección *</label>
-                                    <textarea class="form-control @error('address') is-invalid @enderror" 
-                                              id="address" name="address" rows="2" required>{{ old('address') }}</textarea>
-                                    @error('address')
+                            <div class="col-md-3">
+                                <div class="form-group mb-3">
+                                    <label for="email" class="form-label">Correo Electrónico</label>
+                                    <input type="email" class="form-control @error('email') is-invalid @enderror" 
+                                           id="email" name="email" value="{{ old('email') }}">
+                                    @error('email')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                             </div>
-                            
+
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="route_id">Ruta</label>
-                                    <select class="form-control @error('route_id') is-invalid @enderror" 
+                                <div class="form-group mb-3">
+                                    <label for="route_id" class="form-label">Ruta</label>
+                                    <select class="form-select @error('route_id') is-invalid @enderror" 
                                             id="route_id" name="route_id">
                                         <option value="">Seleccionar...</option>
                                         @foreach($routes ?? [] as $route)
@@ -107,13 +105,13 @@
                                     @enderror
                                 </div>
                             </div>
-                            
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="email">Correo Electrónico</label>
-                                    <input type="email" class="form-control @error('email') is-invalid @enderror" 
-                                           id="email" name="email" value="{{ old('email') }}">
-                                    @error('email')
+
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="address" class="form-label">Dirección *</label>
+                                    <textarea class="form-control @error('address') is-invalid @enderror" 
+                                              id="address" name="address" rows="2" required>{{ old('address') }}</textarea>
+                                    @error('address')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -123,9 +121,9 @@
                         <!-- Información Personal Adicional -->
                         <div class="row">
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="gender">Género</label>
-                                    <select class="form-control @error('gender') is-invalid @enderror" 
+                                <div class="form-group mb-3">
+                                    <label for="gender" class="form-label">Género</label>
+                                    <select class="form-select @error('gender') is-invalid @enderror" 
                                             id="gender" name="gender">
                                         <option value="">Seleccionar...</option>
                                         <option value="M" {{ old('gender') == 'M' ? 'selected' : '' }}>Masculino</option>
@@ -138,9 +136,9 @@
                             </div>
                             
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="civil_status">Estado Civil</label>
-                                    <select class="form-control @error('civil_status') is-invalid @enderror" 
+                                <div class="form-group mb-3">
+                                    <label for="civil_status" class="form-label">Estado Civil</label>
+                                    <select class="form-select @error('civil_status') is-invalid @enderror" 
                                             id="civil_status" name="civil_status">
                                         <option value="">Seleccionar...</option>
                                         <option value="soltero" {{ old('civil_status') == 'soltero' ? 'selected' : '' }}>Soltero/a</option>
@@ -156,9 +154,9 @@
                             </div>
                             
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="house_type">Tipo de Vivienda</label>
-                                    <select class="form-control @error('house_type') is-invalid @enderror" 
+                                <div class="form-group mb-3">
+                                    <label for="house_type" class="form-label">Tipo de Vivienda</label>
+                                    <select class="form-select @error('house_type') is-invalid @enderror" 
                                             id="house_type" name="house_type">
                                         <option value="">Seleccionar...</option>
                                         <option value="propia" {{ old('house_type') == 'propia' ? 'selected' : '' }}>Propia</option>
@@ -181,8 +179,8 @@
                                 </div>
                                 
                                 <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label for="spouse_name">Nombre del Cónyuge</label>
+                                    <div class="form-group mb-3">
+                                        <label for="spouse_name" class="form-label">Nombre del Cónyuge</label>
                                         <input type="text" class="form-control @error('spouse_name') is-invalid @enderror" 
                                                id="spouse_name" name="spouse_name" value="{{ old('spouse_name') }}">
                                         @error('spouse_name')
@@ -192,8 +190,8 @@
                                 </div>
                                 
                                 <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label for="spouse_job">Ocupación del Cónyuge</label>
+                                    <div class="form-group mb-3">
+                                        <label for="spouse_job" class="form-label">Ocupación del Cónyuge</label>
                                         <input type="text" class="form-control @error('spouse_job') is-invalid @enderror" 
                                                id="spouse_job" name="spouse_job" value="{{ old('spouse_job') }}">
                                         @error('spouse_job')
@@ -203,8 +201,8 @@
                                 </div>
                                 
                                 <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label for="spouse_phone">Teléfono del Cónyuge</label>
+                                    <div class="form-group mb-3">
+                                        <label for="spouse_phone" class="form-label">Teléfono del Cónyuge</label>
                                         <input type="text" class="form-control @error('spouse_phone') is-invalid @enderror" 
                                                id="spouse_phone" name="spouse_phone" value="{{ old('spouse_phone') }}">
                                         @error('spouse_phone')
@@ -223,8 +221,8 @@
                             </div>
                             
                             <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="business_type">Tipo de Negocio *</label>
+                                <div class="form-group mb-3">
+                                    <label for="business_type" class="form-label">Tipo de Negocio *</label>
                                     <input type="text" class="form-control @error('business_type') is-invalid @enderror" 
                                            id="business_type" name="business_type" value="{{ old('business_type') }}" required>
                                     @error('business_type')
@@ -234,8 +232,8 @@
                             </div>
                             
                             <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="business_time">Tiempo del Negocio (años) *</label>
+                                <div class="form-group mb-3">
+                                    <label for="business_time" class="form-label">Tiempo del Negocio (años) *</label>
                                     <input type="number" class="form-control @error('business_time') is-invalid @enderror" 
                                            id="business_time" name="business_time" value="{{ old('business_time') }}" required>
                                     @error('business_time')
@@ -245,9 +243,9 @@
                             </div>
                             
                             <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="business_location">Local</label>
-                                    <select class="form-control @error('business_location') is-invalid @enderror" 
+                                <div class="form-group mb-3">
+                                    <label for="business_location" class="form-label">Local</label>
+                                    <select class="form-select @error('business_location') is-invalid @enderror" 
                                             id="business_location" name="business_location">
                                         <option value="">Seleccionar...</option>
                                         <option value="propio" {{ old('business_location') == 'propio' ? 'selected' : '' }}>Propio</option>
@@ -263,8 +261,8 @@
 
                         <div class="row">
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="sales_good">Ventas Días Buenos *</label>
+                                <div class="form-group mb-3">
+                                    <label for="sales_good" class="form-label">Ventas Días Buenos *</label>
                                     <input type="number" step="0.01" class="form-control @error('sales_good') is-invalid @enderror" 
                                            id="sales_good" name="sales_good" value="{{ old('sales_good') }}" required>
                                     @error('sales_good')
@@ -274,8 +272,8 @@
                             </div>
                             
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="sales_bad">Ventas Días Malos *</label>
+                                <div class="form-group mb-3">
+                                    <label for="sales_bad" class="form-label">Ventas Días Malos *</label>
                                     <input type="number" step="0.01" class="form-control @error('sales_bad') is-invalid @enderror" 
                                            id="sales_bad" name="sales_bad" value="{{ old('sales_bad') }}" required>
                                     @error('sales_bad')
@@ -285,8 +283,8 @@
                             </div>
                             
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="weekly_average">Promedio Semanal *</label>
+                                <div class="form-group mb-3">
+                                    <label for="weekly_average" class="form-label">Promedio Semanal *</label>
                                     <input type="number" step="0.01" class="form-control @error('weekly_average') is-invalid @enderror" 
                                            id="weekly_average" name="weekly_average" value="{{ old('weekly_average') }}" readonly>
                                     @error('weekly_average')
@@ -296,8 +294,8 @@
                             </div>
                             
                             <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="net_profit">Ganancias Netas *</label>
+                                <div class="form-group mb-3">
+                                    <label for="net_profit" class="form-label">Ganancias Netas *</label>
                                     <input type="number" step="0.01" class="form-control @error('net_profit') is-invalid @enderror" 
                                            id="net_profit" name="net_profit" value="{{ old('net_profit') }}" readonly>
                                     @error('net_profit')
@@ -308,16 +306,16 @@
                         </div>
 
                         <!-- Solicitud de Préstamo -->
-                        <div class="row mt-3">
+                        <div class="row mt-4">
                             <div class="col-md-12 mb-3">
                                 <h4>Solicitud de Préstamo</h4>
                                 <hr>
                             </div>
                             
                             <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="credit_type_id">Tipo de Crédito *</label>
-                                    <select class="form-control @error('credit_type_id') is-invalid @enderror" 
+                                <div class="form-group mb-3">
+                                    <label for="credit_type_id" class="form-label">Tipo de Crédito *</label>
+                                    <select class="form-select @error('credit_type_id') is-invalid @enderror" 
                                             id="credit_type_id" name="credit_type_id" required>
                                         <option value="">Seleccionar...</option>
                                         @foreach($creditTypes ?? [] as $type)
@@ -340,38 +338,23 @@
                                     <small id="interest_rate_info" class="form-text text-info"></small>
                                 </div>
                             </div>
-                            
+
                             <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="loan_amount">Monto Solicitado *</label>
+                                <div class="form-group mb-3">
+                                    <label for="loan_amount" class="form-label">Monto Solicitado *</label>
                                     <input type="number" step="0.01" class="form-control @error('loan_amount') is-invalid @enderror" 
-                                           id="loan_amount" name="loan_amount" 
-                                           value="{{ old('loan_amount') }}" required>
+                                           id="loan_amount" name="loan_amount" value="{{ old('loan_amount') }}" required>
                                     <div id="loan_amount_error" class="invalid-feedback"></div>
                                     @error('loan_amount')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                             </div>
-                            
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="term_months">Plazo (meses) *</label>
-                                    <input type="number" class="form-control @error('term_months') is-invalid @enderror" 
-                                           id="term_months" name="term_months" 
-                                           value="{{ old('term_months', 6) }}" required>
-                                    @error('term_months')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-                        </div>
 
-                        <div class="row">
                             <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="payment_frequency">Frecuencia de Pago *</label>
-                                    <select class="form-control @error('payment_frequency') is-invalid @enderror" 
+                                <div class="form-group mb-3">
+                                    <label for="payment_frequency" class="form-label">Frecuencia de Pago *</label>
+                                    <select class="form-select @error('payment_frequency') is-invalid @enderror" 
                                             id="payment_frequency" name="payment_frequency" required>
                                         <option value="">Seleccionar...</option>
                                         <option value="daily" {{ old('payment_frequency') == 'daily' ? 'selected' : '' }}>Diario</option>
@@ -384,10 +367,10 @@
                                     @enderror
                                 </div>
                             </div>
-                            
+
                             <div class="col-md-8">
-                                <div class="form-group">
-                                    <label for="notes">Notas</label>
+                                <div class="form-group mb-3">
+                                    <label for="notes" class="form-label">Notas</label>
                                     <textarea class="form-control @error('notes') is-invalid @enderror" 
                                               id="notes" name="notes" rows="1">{{ old('notes') }}</textarea>
                                     @error('notes')
@@ -398,13 +381,11 @@
                         </div>
                     </div>
 
-                    <div class="card-footer text-right">
-                        <button type="submit" class="btn btn-success" id="submitButton">
-                            <i class="fas fa-save"></i> Guardar
-                        </button>
-                        <a href="{{ route('clients.index') }}" class="btn btn-default">
-                            <i class="fas fa-times"></i> Cancelar
-                        </a>
+                    <div class="card-footer">
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Guardar Cliente y Crear Solicitud</button>
+                            <a href="{{ route('clients.index') }}" class="btn btn-secondary">Cancelar</a>
+                        </div>
                     </div>
                 </form>
             </div>

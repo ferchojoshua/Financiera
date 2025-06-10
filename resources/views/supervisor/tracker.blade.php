@@ -40,29 +40,31 @@
                     
                     @php
                     $agentId = isset($_GET['agent_id']) ? $_GET['agent_id'] : null;
-                    $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
+                    $startDate = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
+                    $endDate = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d H:i:s');
                     
                     $agent = $agentId ? \App\Models\User::find($agentId) : null;
                     
                     // Rutas y ubicaciones
                     $routes = $agentId ? \App\Models\Route::where('id_agent', $agentId)
-                        ->whereDate('created_at', $date)
+                        ->whereDate('created_at', $startDate)
                         ->orderBy('created_at', 'asc')
                         ->get() : collect([]);
                         
                     // Actividades (pagos, visitas, etc.)
-                    $payments = $agentId ? \App\Models\Summary::where('id_agent', $agentId)
-                        ->whereDate('created_at', $date)
-                        ->orderBy('created_at', 'asc')
+                    $paymentsCollection = $agentId ? \App\Models\Payment::where('id_agent', $agentId)
+                        ->whereBetween('created_at', [$startDate, $endDate])
                         ->get() : collect([]);
                         
+                    $totalPayments = $paymentsCollection->sum('amount');
+                        
                     // Unir todas las actividades
-                    $activities = $payments->map(function($item) {
+                    $activities = $paymentsCollection->map(function($item) {
                         return [
                             'time' => $item->created_at,
                             'type' => 'payment',
                             'details' => 'Pago registrado por $' . number_format($item->amount, 2),
-                            'client_id' => $item->id_user
+                            'client_id' => $item->credit->client_id ?? null
                         ];
                     });
                     @endphp

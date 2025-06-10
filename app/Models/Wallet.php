@@ -25,17 +25,13 @@ class Wallet extends Model
      * @var array
      */
     protected $fillable = [
-        'user_id',
-        'supervisor_id',
-        'balance',
-        'description',
+        'legacy_id',
         'wallet_type',
         'status',
         'country_id',
         'address',
-        'legacy_id',
-        'created_by',
-        'updated_by',
+        'created_at',
+        'updated_at'
     ];
 
     /**
@@ -63,7 +59,7 @@ class Wallet extends Model
      */
     public function supervisor()
     {
-        return $this->belongsTo(User::class, 'supervisor_id');
+        return $this->belongsToMany(User::class, 'agent_has_supervisor', 'id_wallet', 'id_supervisor');
     }
 
     /**

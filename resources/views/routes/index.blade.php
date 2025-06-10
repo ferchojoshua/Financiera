@@ -85,7 +85,7 @@
                                         </td>
                                         <td>
                                             @if($route->supervisor)
-                                                <a href="{{ route('config.users.edit', $route->supervisor_id) }}" class="text-primary">
+                                                <a href="{{ route('config.users.edit', $route->supervisor->id) }}" class="text-primary">
                                                     {{ $route->supervisor->name }} {{ $route->supervisor->last_name }}
                                                 </a>
                                             @else

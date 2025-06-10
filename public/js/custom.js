@@ -10,6 +10,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Inicializar notificaciones
     setupNotifications();
+
+    // Inicializar el tema
+    initializeTheme();
+    
+    // Configurar el toggle del tema
+    setupThemeToggle();
 });
 
 // Configuración de Material Dashboard

@@ -142,7 +142,6 @@ class RouteController extends Controller
         $route->name = $request->name;
         $route->description = $request->description;
         $route->collector_id = $request->collector_id;
-        $route->supervisor_id = $request->supervisor_id;
         $route->status = $request->status;
         $route->zone = $request->zone;
         $route->days = json_encode($request->days);
@@ -156,6 +155,22 @@ class RouteController extends Controller
         }
         
         $route->save();
+
+        // Si se proporcionó un supervisor_id, crear o actualizar la relación en agent_has_supervisor
+        if ($request->has('supervisor_id') && !empty($request->supervisor_id)) {
+            DB::table('agent_has_supervisor')->updateOrInsert(
+                [
+                    'id_user_agent' => $request->collector_id,
+                    'id_supervisor' => $request->supervisor_id
+                ],
+                [
+                    'base' => 0.00,
+                    'id_wallet' => DB::table('wallet')->first()->id ?? 1,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]
+            );
+        }
 
         return redirect()->route('routes.index')->with('success', 'Ruta creada correctamente');
     }
@@ -227,7 +242,6 @@ class RouteController extends Controller
         $route->name = $request->name;
         $route->description = $request->description;
         $route->collector_id = $request->collector_id;
-        $route->supervisor_id = $request->supervisor_id;
         $route->status = $request->status;
         $route->zone = $request->zone;
         $route->days = json_encode($request->days);
@@ -238,6 +252,31 @@ class RouteController extends Controller
         }
         
         $route->save();
+
+        // Actualizar la relación supervisor-agente
+        if ($request->has('supervisor_id')) {
+            if (!empty($request->supervisor_id)) {
+                // Si hay supervisor, crear o actualizar la relación
+                DB::table('agent_has_supervisor')->updateOrInsert(
+                    [
+                        'id_user_agent' => $request->collector_id,
+                        'id_supervisor' => $request->supervisor_id
+                    ],
+                    [
+                        'base' => DB::table('agent_has_supervisor')
+                            ->where('id_user_agent', $request->collector_id)
+                            ->value('base') ?? 0.00,
+                        'id_wallet' => DB::table('wallet')->first()->id ?? 1,
+                        'updated_at' => now()
+                    ]
+                );
+            } else {
+                // Si no hay supervisor, eliminar la relación existente
+                DB::table('agent_has_supervisor')
+                    ->where('id_user_agent', $request->collector_id)
+                    ->delete();
+            }
+        }
 
         return redirect()->route('routes.index')->with('success', 'Ruta actualizada correctamente');
     }

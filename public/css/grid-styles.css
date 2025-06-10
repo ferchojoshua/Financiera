@@ -1,0 +1,210 @@
+/* Variables del tema */
+:root {
+    /* Colores del tema claro */
+    --text-primary: #2d3748;
+    --text-secondary: #4a5568;
+    --bg-table-header: #10775c;
+    --bg-table-row: #ffffff;
+    --bg-table-row-hover: rgba(16, 119, 92, 0.05);
+    --border-color: #e2e8f0;
+    --btn-primary-bg: #10775c;
+    --btn-primary-hover: #0d5c48;
+}
+
+[data-theme="dark"] {
+    /* Colores del tema oscuro */
+    --text-primary: #e2e8f0;
+    --text-secondary: #a0aec0;
+    --bg-table-header: #0d5c48;
+    --bg-table-row: #2d3748;
+    --bg-table-row-hover: rgba(16, 119, 92, 0.15);
+    --border-color: #4a5568;
+    --btn-primary-bg: #0d5c48;
+    --btn-primary-hover: #0a4837;
+}
+
+/* Estilos de la tabla */
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.data-table thead th {
+    background-color: var(--bg-table-header);
+    color: #ffffff;
+    font-weight: 600;
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.data-table tbody tr {
+    background-color: var(--bg-table-row);
+}
+
+.data-table tbody tr:hover {
+    background-color: var(--bg-table-row-hover);
+}
+
+.data-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+/* Botones en la grid */
+.grid-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.btn-grid {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.375rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    color: #ffffff;
+}
+
+.btn-grid:hover {
+    transform: translateY(-1px);
+}
+
+.btn-grid-view {
+    background-color: #3498db;
+}
+
+.btn-grid-view:hover {
+    background-color: #2980b9;
+}
+
+.btn-grid-edit {
+    background-color: var(--btn-primary-bg);
+}
+
+.btn-grid-edit:hover {
+    background-color: var(--btn-primary-hover);
+}
+
+.btn-grid-delete {
+    background-color: #e74c3c;
+}
+
+.btn-grid-delete:hover {
+    background-color: #c0392b;
+}
+
+/* Filtros y búsqueda */
+.filters-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: var(--bg-table-row);
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    color: var(--text-primary);
+    background-color: var(--bg-table-row);
+}
+
+.filter-select {
+    padding: 0.5rem 2.5rem 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    color: var(--text-primary);
+    background-color: var(--bg-table-row);
+    background-image: url("data:image/svg+xml,...");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 1.5em 1.5em;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.btn-search {
+    padding: 0.5rem 1rem;
+    background-color: var(--btn-primary-bg);
+    color: #ffffff;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-search:hover {
+    background-color: var(--btn-primary-hover);
+}
+
+.btn-export {
+    padding: 0.5rem 1rem;
+    background-color: #28a745;
+    color: #ffffff;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-export:hover {
+    background-color: #218838;
+}
+
+/* Estados */
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    text-align: center;
+    color: #ffffff;
+}
+
+.status-active {
+    background-color: #28a745;
+}
+
+.status-inactive {
+    background-color: #dc3545;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .filters-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-input,
+    .filter-select,
+    .btn-search,
+    .btn-export {
+        width: 100%;
+        margin: 0.25rem 0;
+    }
+
+    .grid-actions {
+        justify-content: center;
+    }
+} 

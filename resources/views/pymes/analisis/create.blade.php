@@ -66,6 +66,47 @@
                         </div>
                     </div>
 
+                    <!-- Documentación de Ingresos -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Documentos de la Solicitud</h5>
+                        </div>
+                        <div class="card-body">
+                            @if($solicitud->documents->count() > 0)
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Nombre</th>
+                                                <th>Tipo</th>
+                                                <th>Fecha</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($solicitud->documents as $document)
+                                                <tr>
+                                                    <td>{{ $document->name }}</td>
+                                                    <td>{{ $document->document_type }}</td>
+                                                    <td>{{ $document->created_at->format('d/m/Y H:i') }}</td>
+                                                    <td>
+                                                        <a href="{{ Storage::url($document->file_path) }}" class="btn btn-sm btn-info" target="_blank">
+                                                            <i class="fas fa-download"></i> Ver Documento
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="alert alert-info">
+                                    No hay documentos disponibles para esta solicitud. Los documentos deben ser cargados desde la vista de detalle de la solicitud.
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
                     <!-- Formulario de Análisis -->
                     <form method="POST" action="{{ route('pymes.analisis.store') }}" class="needs-validation" novalidate>
                         @csrf
@@ -77,6 +118,18 @@
                                 <h5 class="mb-0">{{ $solicitud->client->business_name ? 'Estados Financieros' : 'Documentación de Ingresos' }}</h5>
                             </div>
                             <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <button type="button" 
+                                                class="btn btn-primary"
+                                                id="btnAddDocument"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#newStatementModal">
+                                            <i class="fas fa-plus"></i> Agregar Documento
+                                        </button>
+                                    </div>
+                                </div>
+
                                 @if($solicitud->financialStatements->count() > 0)
                                     <div class="table-responsive">
                                         <table class="table table-striped">
@@ -84,6 +137,7 @@
                                                 <tr>
                                                     <th>Tipo</th>
                                                     <th>Período</th>
+                                                    <th>Fecha de Carga</th>
                                                     <th>Estado</th>
                                                     <th>Acciones</th>
                                                 </tr>
@@ -91,8 +145,9 @@
                                             <tbody>
                                                 @foreach($solicitud->financialStatements as $statement)
                                                     <tr>
-                                                        <td>{{ $statement->statement_type }}</td>
+                                                        <td>{{ ucfirst($statement->statement_type) }}</td>
                                                         <td>{{ $statement->period_start->format('d/m/Y') }} - {{ $statement->period_end->format('d/m/Y') }}</td>
+                                                        <td>{{ $statement->created_at->format('d/m/Y H:i') }}</td>
                                                         <td>
                                                             @if($statement->is_validated)
                                                                 <span class="badge bg-success">Validado</span>
@@ -101,12 +156,9 @@
                                                             @endif
                                                         </td>
                                                         <td>
-                                                            <button type="button" 
-                                                                    class="btn btn-sm btn-info"
-                                                                    data-bs-toggle="modal"
-                                                                    data-bs-target="#statementModal{{ $statement->id }}">
-                                                                <i class="fas fa-eye"></i> Ver
-                                                            </button>
+                                                            <a href="{{ Storage::url($statement->file_path) }}" class="btn btn-sm btn-info" target="_blank">
+                                                                <i class="fas fa-download"></i>
+                                                            </a>
                                                         </td>
                                                     </tr>
                                                 @endforeach
@@ -114,14 +166,8 @@
                                         </table>
                                     </div>
                                 @else
-                                    <div class="alert alert-warning">
-                                        No hay documentos registrados.
-                                        <button type="button" 
-                                                class="btn btn-sm btn-warning ms-2"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#newStatementModal">
-                                            <i class="fas fa-plus"></i> Agregar
-                                        </button>
+                                    <div class="alert alert-info">
+                                        No hay documentos registrados aún.
                                     </div>
                                 @endif
                             </div>
@@ -281,7 +327,7 @@
 </div>
 
 <!-- Modal para Nuevo Estado Financiero -->
-<div class="modal fade" id="newStatementModal" tabindex="-1">
+<div class="modal fade" id="newStatementModal" tabindex="-1" aria-labelledby="newStatementModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form action="{{ route('pymes.analisis.store-statement') }}" method="POST" enctype="multipart/form-data">
@@ -289,8 +335,8 @@
                 <input type="hidden" name="loan_application_id" value="{{ $solicitud->id }}">
                 
                 <div class="modal-header">
-                    <h5 class="modal-title">Agregar Estado Financiero</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="newStatementModalLabel">Agregar Estado Financiero</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 
                 <div class="modal-body">
@@ -429,6 +475,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Inicializar el modal
+    var myModal = new bootstrap.Modal(document.getElementById('newStatementModal'));
+    
+    // Agregar evento al botón
+    document.getElementById('btnAddDocument').addEventListener('click', function() {
+        myModal.show();
+    });
 });
 </script>
 @endpush 

@@ -4,6 +4,9 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use App\Models\Role;
+use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 
 class AssignSuperAdminPermissions extends Command
 {
@@ -12,14 +15,14 @@ class AssignSuperAdminPermissions extends Command
      *
      * @var string
      */
-    protected $signature = 'permissions:superadmin';
+    protected $signature = 'assign:superadmin-permissions';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Asignar todos los permisos de módulos al rol superadmin';
+    protected $description = 'Asigna todos los permisos necesarios al rol de superadmin';
 
     /**
      * Create a new command instance.
@@ -38,37 +41,37 @@ class AssignSuperAdminPermissions extends Command
      */
     public function handle()
     {
-        $this->info('Asignando permisos completos al superadmin...');
-        
-        // Buscar el rol superadmin
-        $superadminRole = DB::table('roles')->where('slug', 'superadmin')->first();
-        
+        $this->info('Iniciando asignación de permisos para superadmin...');
+
+        // 1. Asegurar que existe el rol superadmin
+        $superadminRole = Role::where('slug', 'superadmin')->first();
         if (!$superadminRole) {
-            $this->error('El rol superadmin no existe en la base de datos.');
-            return 1;
+            $superadminRole = Role::create([
+                'name' => 'Super Administrador',
+                'slug' => 'superadmin',
+                'description' => 'Rol con acceso total al sistema',
+                'is_active' => true
+            ]);
+            $this->info('Rol superadmin creado.');
         }
-        
-        // Módulos del sistema (asegúrate de incluir todos)
+
+        // 2. Lista de todos los módulos del sistema
         $modules = [
             'dashboard',
             'clientes',
+            'pymes',
             'creditos',
             'pagos',
             'cobranzas',
+            'garantias',
             'reportes',
+            'contabilidad',
+            'productos',
             'configuracion',
             'usuarios',
-            'contabilidad',
             'sucursales',
             'billeteras',
             'simulador',
-            'pymes',
-            'garantias',
-            'productos',
-            'rutas',
-            'auditoria',
-            'empresa',
-            'billetera',
             'solicitudes',
             'analisis',
             'acuerdos',
@@ -96,12 +99,12 @@ class AssignSuperAdminPermissions extends Command
         
         $count = 0;
         
-        // Eliminar permisos antiguos para superadmin
+        // 3. Eliminar permisos antiguos para superadmin
         DB::table('role_module_permissions')
             ->where('role_id', $superadminRole->id)
             ->delete();
             
-        // Asignar todos los módulos
+        // 4. Asignar todos los módulos
         foreach ($modules as $module) {
             DB::table('role_module_permissions')->insert([
                 'role_id' => $superadminRole->id,
@@ -112,27 +115,33 @@ class AssignSuperAdminPermissions extends Command
             ]);
             $count++;
         }
-        
-        // Verificar si existe la columna 'role' en la tabla users
-        $hasRoleColumn = false;
-        $columns = DB::getSchemaBuilder()->getColumnListing('users');
-        if (in_array('role', $columns)) {
-            $hasRoleColumn = true;
-            // Actualizar usuarios superadmin para asegurar que tienen el nivel correcto
-            DB::table('users')
-                ->where('role', 'superadmin')
-                ->update(['level' => 'superadmin']);
-                
-            DB::table('users')
-                ->where('level', 'superadmin')
-                ->update(['role' => 'superadmin']);
-                
-            $this->info("Se actualizaron los usuarios superadmin con level y role correctos.");
-        } else {
-            $this->info("La columna 'role' no existe en la tabla users. No se actualizaron los usuarios.");
+
+        // 5. Actualizar usuarios superadmin
+        $superadminUsers = User::where('role', 'superadmin')
+            ->orWhere('level', 'admin')
+            ->get();
+
+        foreach ($superadminUsers as $user) {
+            $user->role = 'superadmin';
+            $user->level = 'admin';
+            $user->save();
+
+            // Asignar rol en la tabla user_roles si existe
+            if (Schema::hasTable('user_roles')) {
+                DB::table('user_roles')
+                    ->updateOrInsert(
+                        ['user_id' => $user->id],
+                        [
+                            'role_id' => $superadminRole->id,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]
+                    );
+            }
         }
-        
-        $this->info("Se asignaron $count permisos al rol superadmin.");
+
+        $this->info("Se asignaron {$count} permisos al rol superadmin.");
+        $this->info("Se actualizaron " . $superadminUsers->count() . " usuarios superadmin.");
         
         return 0;
     }

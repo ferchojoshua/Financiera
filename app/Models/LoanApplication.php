@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\User;
 
 class LoanApplication extends Model
 {
@@ -61,7 +62,7 @@ class LoanApplication extends Model
      */
     public function client(): BelongsTo
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsTo(User::class, 'client_id');
     }
 
     /**
@@ -105,21 +106,6 @@ class LoanApplication extends Model
     }
 
     /**
-     * Obtener el cliente (compatible con ambos sistemas)
-     * Este método verifica si hay un client_id y usa la nueva tabla,
-     * o si no, usa el user_id de la tabla users
-     */
-    public function getClient()
-    {
-        if ($this->client_id && $this->client) {
-            return $this->client;
-        }
-        
-        // Compatibilidad hacia atrás - usar tabla users
-        return $this->user;
-    }
-
-    /**
      * Verifica si la solicitud es para una PYME
      */
     public function isPymeLoan()
@@ -140,7 +126,7 @@ class LoanApplication extends Model
      */
     public function credit()
     {
-        return $this->hasOne(Credit::class);
+        return $this->belongsTo(Credit::class, 'credit_id');
     }
 
     /**
@@ -172,17 +158,26 @@ class LoanApplication extends Model
             throw new \Exception('Esta solicitud ya tiene un crédito asociado.');
         }
 
+        // Generar número de crédito
+        $creditNumber = 'CR-' . str_pad($this->id, 6, '0', STR_PAD_LEFT);
+
         return Credit::create([
             'client_id' => $this->client_id,
-            'credit_type_id' => $this->credit_type_id,
-            'loan_application_id' => $this->id,
+            'id_user' => $this->client_id,
+            'credit_number' => $creditNumber,
             'amount' => $this->amount_requested,
-            'term_months' => $this->term_months,
-            'payment_frequency' => $this->payment_frequency,
-            'interest_rate' => $this->creditType->interest_rate,
+            'amount_requested' => $this->amount_requested,
+            'amount_approved' => $this->amount_requested,
+            'payment_number' => $this->term_months,
             'status' => 'active',
-            'start_date' => now(),
-            'created_by' => $this->approved_by,
+            'loan_application_id' => $this->id,
+            'interest_rate' => $this->interest_rate ?? 0,
+            'credit_type' => $this->loan_type ?? 'pyme',
+            'id_agent' => $this->analyst_id,
+            'approved_by' => $this->approved_by,
+            'approved_at' => now(),
+            'first_payment_date' => now()->addDays(30),
+            'notes' => $this->notes
         ]);
     }
 }

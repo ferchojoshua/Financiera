@@ -1,91 +1,61 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container">
+<div class="container-fluid">
     <div class="row">
-        <div class="col-md-12">
+        <div class="col-12">
             <div class="card">
-                <div class="card-header">
-                    <h4 class="card-title">Gestión de Créditos</h4>
-                </div>
-                <div class="card-body">
-                    <!-- Selector de Funciones -->
-                    <div class="mb-4">
-                        <h5>Funciones Disponibles</h5>
-                        @php
-                        $creditFunctions = json_encode([
-                            [
-                                'id' => 'new_credit',
-                                'name' => 'Nuevo Crédito',
-                                'icon' => 'fa-plus-circle',
-                                'description' => 'Crear un nuevo crédito',
-                                'action' => route('credit.create')
-                            ],
-                            [
-                                'id' => 'pending_approval',
-                                'name' => 'Pendientes',
-                                'icon' => 'fa-clock',
-                                'description' => 'Créditos pendientes de aprobación',
-                                'action' => route('credit.pending_approval')
-                            ],
-                            [
-                                'id' => 'active_credits',
-                                'name' => 'Activos',
-                                'icon' => 'fa-check-circle',
-                                'description' => 'Créditos activos',
-                                'action' => '#active_credits'
-                            ],
-                            [
-                                'id' => 'overdue_credits',
-                                'name' => 'Vencidos',
-                                'icon' => 'fa-exclamation-circle',
-                                'description' => 'Créditos con pagos vencidos',
-                                'action' => '#overdue_credits'
-                            ],
-                            [
-                                'id' => 'payment_register',
-                                'name' => 'Registrar Pago',
-                                'icon' => 'fa-hand-holding-usd',
-                                'description' => 'Registrar un nuevo pago',
-                                'action' => route('payment.create')
-                            ]
-                        ]);
-                        @endphp
-                        
-                        <x-function-selector 
-                            id="credit-functions" 
-                            :functions="$creditFunctions" 
-                            theme="light"
-                            onSelectCallback="
-                                if (func.id === 'active_credits') {
-                                    document.querySelector('#active-credits-section').scrollIntoView({behavior: 'smooth'});
-                                }
-                                if (func.id === 'overdue_credits') {
-                                    document.querySelector('#overdue-credits-section').scrollIntoView({behavior: 'smooth'});
-                                }
-                                console.log('Función seleccionada:', func.name);
-                            "
-                        />
+                <div class="card-header primary">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-credit-card"></i> Gestión de Créditos
+                        </h4>
+                        <div>
+                            <a href="{{ route('credit.create') }}" class="btn btn-success">
+                                <i class="fas fa-plus-circle"></i> Nuevo Crédito
+                            </a>
+                        </div>
                     </div>
-                    
-                    <!-- Resto del contenido -->
-                    @if(session('success'))
-                        <div class="alert alert-success alert-dismissible fade show">
-                            {{ session('success') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    @endif
+                </div>
 
-                    @if(session('error'))
-                        <div class="alert alert-danger alert-dismissible fade show">
-                            {{ session('error') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    @endif
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="mb-4">
+                        <form action="{{ route('credit.index') }}" method="GET" class="row g-3 align-items-end">
+                            <div class="col-md-5">
+                                <label for="searchInput" class="form-label">Buscar:</label>
+                                <div class="input-group">
+                                    <input type="text" name="search" class="form-control" id="searchInput" 
+                                       placeholder="Cliente, monto..."
+                                       value="{{ request('search') }}">
+                                    <button class="btn btn-primary" type="submit">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="statusFilter" class="form-label">Estado:</label>
+                                <select class="form-control" name="status" id="statusFilter">
+                                    <option value="all" {{ request('status') == 'all' ? 'selected' : '' }}>Todos</option>
+                                    <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Activos</option>
+                                    <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completados</option>
+                                    <option value="overdue" {{ request('status') == 'overdue' ? 'selected' : '' }}>En mora</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-auto">
+                                <a href="{{ route('credit.index') }}" class="btn btn-secondary">
+                                    <i class="fas fa-sync-alt"></i> Reiniciar
+                                </a>
+                            </div>
+                        </form>
+                    </div>
 
-                    <div class="table-responsive">
+                    <!-- Tabla de créditos -->
+                    <div class="table-container">
                         <table class="table table-striped table-hover">
-                            <thead class="table-dark">
+                            <thead>
                                 <tr>
                                     <th>ID</th>
                                     <th>Cliente</th>
@@ -94,92 +64,77 @@
                                     <th>Cuotas</th>
                                     <th>Frecuencia</th>
                                     <th>Estado</th>
-                                    <th>Aprobación</th>
                                     <th>Fecha</th>
-                                    <th>Acciones</th>
+                                    <th class="text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @if(count($credits) > 0)
-                                    @foreach($credits as $credit)
-                                        <tr>
-                                            <td>{{ $credit->id }}</td>
-                                            <td>
-                                                @if($credit->user)
-                                                    {{ $credit->user->name }} {{ $credit->user->last_name ?? '' }}
-                                                @else
-                                                    Cliente no disponible
-                                                @endif
-                                            </td>
-                                            <td>${{ number_format($credit->amount, 2) }}</td>
-                                            <td>${{ number_format($credit->amount_neto, 2) }}</td>
-                                            <td>{{ $credit->payment_number }}</td>
-                                            <td>{{ ucfirst($credit->payment_frequency) }}</td>
-                                            <td>
-                                                @if($credit->status == 'inprogress')
-                                                    <span class="badge bg-primary">En Progreso</span>
-                                                @elseif($credit->status == 'completed')
-                                                    <span class="badge bg-success">Completado</span>
-                                                @elseif($credit->status == 'cancelled')
-                                                    <span class="badge bg-danger">Cancelado</span>
-                                                @else
-                                                    <span class="badge bg-secondary">{{ $credit->status }}</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                @if($credit->approval_status == 'pendiente')
-                                                    <span class="badge bg-warning">Pendiente</span>
-                                                @elseif($credit->approval_status == 'aprobado')
-                                                    <span class="badge bg-success">Aprobado</span>
-                                                    @if($credit->approver)
-                                                        <small class="d-block text-muted">por {{ $credit->approver->name }}</small>
-                                                    @endif
-                                                @elseif($credit->approval_status == 'rechazado')
-                                                    <span class="badge bg-danger">Rechazado</span>
-                                                    @if($credit->approver)
-                                                        <small class="d-block text-muted">por {{ $credit->approver->name }}</small>
-                                                    @endif
-                                                @endif
-                                            </td>
-                                            <td>{{ $credit->created_at->format('d/m/Y') }}</td>
-                                            <td>
-                                                <div class="btn-group">
-                                                    <a href="{{ route('credit.show', $credit->id) }}" class="btn btn-sm btn-info" title="Ver detalles">
-                                                        <i class="fa fa-eye"></i>
-                                                    </a>
-                                                    @if($credit->status == 'inprogress')
-                                                        <a href="{{ route('credit.edit', $credit->id) }}" class="btn btn-sm btn-warning" title="Editar">
-                                                            <i class="fa fa-edit"></i>
-                                                        </a>
-                                                    @endif
-                                                    @if(Auth::user()->hasRole('supervisor') || Auth::user()->hasRole('admin'))
-                                                        @if($credit->approval_status == 'pendiente')
-                                                            <a href="{{ route('credit.approval.form', $credit->id) }}" class="btn btn-sm btn-primary" title="Revisar aprobación">
-                                                                <i class="fa fa-clipboard-check"></i>
-                                                            </a>
-                                                        @endif
-                                                    @endif
-                                                    <form action="{{ route('credit.destroy', $credit->id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Está seguro de eliminar esta solicitud de crédito?');">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
-                                                            <i class="fa fa-trash"></i>
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                @else
-                                    <tr>
-                                        <td colspan="10" class="text-center">No hay solicitudes de crédito registradas</td>
-                                    </tr>
-                                @endif
+                                @forelse($credits as $credit)
+                                <tr>
+                                    <td>{{ $credit->id }}</td>
+                                    <td>
+                                        <strong>{{ $credit->client->name }} {{ $credit->client->last_name }}</strong>
+                                        <br>
+                                        <small class="text-secondary">{{ $credit->client->nit }}</small>
+                                    </td>
+                                    <td class="text-right">${{ number_format($credit->amount, 2) }}</td>
+                                    <td class="text-right">${{ number_format($credit->total_amount, 2) }}</td>
+                                    <td>{{ $credit->payment_number }}</td>
+                                    <td>{{ ucfirst($credit->frequency) }}</td>
+                                    <td>
+                                        @if($credit->status == 'completed')
+                                            <span class="badge bg-success text-white">Completado</span>
+                                        @elseif($credit->status == 'overdue')
+                                            <span class="badge bg-danger text-white">En Mora</span>
+                                        @else
+                                            <span class="badge bg-info text-white">En Progreso</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $credit->created_at->format('d/m/Y') }}</td>
+                                    <td class="text-center">
+                                        <div class="btn-group">
+                                            <a href="{{ route('credit.show', $credit->id) }}" 
+                                               class="btn btn-sm btn-info" 
+                                               title="Ver detalles">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            @if($credit->status != 'completed')
+                                            <a href="{{ route('credit.edit', $credit->id) }}" 
+                                               class="btn btn-sm btn-primary"
+                                               title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            @endif
+                                            @if($credit->payments_count == 0)
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-danger" 
+                                                    onclick="confirmDelete({{ $credit->id }})"
+                                                    title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="9" class="text-center">
+                                        <div class="empty-state">
+                                            <i class="fas fa-inbox empty-icon"></i>
+                                            <p>No se encontraron créditos</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforelse
                             </tbody>
                         </table>
                     </div>
-                    
-                    <div class="d-flex justify-content-center mt-4">
+
+                    <!-- Paginación -->
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div class="text-secondary">
+                            Mostrando {{ $credits->firstItem() ?? 0 }} - {{ $credits->lastItem() ?? 0 }} de {{ $credits->total() ?? 0 }} registros
+                        </div>
                         {{ $credits->links() }}
                     </div>
                 </div>
@@ -187,4 +142,37 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de confirmación de eliminación -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro que desea eliminar este crédito? Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <form id="deleteForm" method="POST">
+                    @csrf
+                    @method('DELETE')
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+function confirmDelete(creditId) {
+    const form = document.getElementById('deleteForm');
+    form.action = `/credits/${creditId}`;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+@endpush
 @endsection 

@@ -21,10 +21,20 @@ class Payment extends Model
      * @var array
      */
     protected $fillable = [
-        'credit_id', 'amount', 'payment_date', 'due_date',
-        'payment_method', 'reference_number', 'status',
-        'collected_by', 'notes', 'installment_number',
-        'late_fee'
+        'credit_id',
+        'installment_number',
+        'due_date',
+        'interest',
+        'principal',
+        'penalties',
+        'balance',
+        'payment_date',
+        'amount',
+        'payment_method',
+        'reference_number',
+        'status',
+        'id_agent',
+        'notes'
     ];
 
     /**
@@ -46,8 +56,19 @@ class Payment extends Model
      */
     protected $casts = [
         'amount' => 'float',
-        'late_fee' => 'float'
+        'interest' => 'float',
+        'principal' => 'float',
+        'penalties' => 'float',
+        'balance' => 'float'
     ];
+
+    /**
+     * Relación con el agente que recolectó el pago
+     */
+    public function collector(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_agent');
+    }
 
     /**
      * Relación con el crédito
@@ -55,14 +76,6 @@ class Payment extends Model
     public function credit(): BelongsTo
     {
         return $this->belongsTo(Credit::class, 'credit_id');
-    }
-
-    /**
-     * Relación con el agente que recolectó el pago
-     */
-    public function collector(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'collected_by');
     }
 
     /**
@@ -98,7 +111,7 @@ class Payment extends Model
         $this->payment_date = now();
         $this->payment_method = $payment_method;
         $this->reference_number = $reference;
-        $this->collected_by = $collector_id ?? auth()->id();
+        $this->id_agent = $collector_id ?? auth()->id();
         $this->status = 'paid';
         $this->save();
 

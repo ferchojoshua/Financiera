@@ -40,7 +40,7 @@ class ReportController extends Controller
             
             if (Schema::hasTable('routes') && $request->has('collector_id') && $request->collector_id) {
                 $query->whereHas('route', function($q) use ($request) {
-                    $q->where('collector_id', $request->collector_id);
+                    $q->where('collected_by', $request->collector_id);
                 });
             }
             
@@ -89,9 +89,9 @@ class ReportController extends Controller
             // Estadísticas para el dashboard
             $stats = [
                 'total_credits' => $query->count(),
-                'total_amount' => $query->sum('amount_neto'),
-                'total_interest' => $query->sum('utility'),
-                'avg_amount' => $query->count() > 0 ? $query->avg('amount_neto') : 0,
+                'total_amount' => $query->sum('amount'),
+                'total_interest' => $query->sum('utility_rate') * $query->sum('amount') / 100, // Calculado usando tasa de utilidad
+                'avg_amount' => $query->count() > 0 ? $query->avg('amount') : 0,
             ];
             
             return view('reports.active', compact('credits', 'routes', 'collectors', 'stats'));
@@ -125,7 +125,7 @@ class ReportController extends Controller
                 
             // Filtros adicionales
             if ($request->has('user_id') && $request->user_id) {
-                $query->where('user_id', $request->user_id);
+                $query->where('client_id', $request->user_id);
             }
             
             if ($request->has('branch_id') && $request->branch_id) {
@@ -143,9 +143,9 @@ class ReportController extends Controller
             
             // Estadísticas para la vista
             $stats = [
-                'total_amount' => $credits->sum('amount_neto'),
+                'total_amount' => $credits->sum('amount'),
                 'count' => $credits->count(),
-                'avg_amount' => $credits->count() > 0 ? $credits->sum('amount_neto') / $credits->count() : 0,
+                'avg_amount' => $credits->count() > 0 ? $credits->sum('amount') / $credits->count() : 0,
                 'new_clients' => $credits->where('is_renewal', false)->count()
             ];
             
@@ -190,7 +190,7 @@ class ReportController extends Controller
                     
             // Filtros adicionales
             if ($request->has('user_id') && $request->user_id) {
-                $query->where('user_id', $request->user_id);
+                $query->where('client_id', $request->user_id);
             }
             
             if (Schema::hasColumn('credit', 'disbursement_date')) {
@@ -210,7 +210,7 @@ class ReportController extends Controller
                 
                 // Estadísticas para la vista
                 $stats = [
-                    'total_overdue_amount' => $query->sum('amount_neto'),
+                    'total_overdue_amount' => $query->sum('amount'),
                     'total_credits' => $query->count(),
                     'avg_days_overdue' => $query->count() > 0 ? $query->avg(\DB::raw("DATEDIFF(CURDATE(), DATE_ADD(disbursement_date, INTERVAL 30 DAY))")) : 0,
                     'max_days_overdue' => $query->count() > 0 ? $query->max(\DB::raw("DATEDIFF(CURDATE(), DATE_ADD(disbursement_date, INTERVAL 30 DAY))")) : 0
@@ -220,7 +220,7 @@ class ReportController extends Controller
                 
                 // Estadísticas básicas si no existe la columna
                 $stats = [
-                    'total_overdue_amount' => $query->sum('amount_neto'),
+                    'total_overdue_amount' => $query->sum('amount'),
                     'total_credits' => $query->count(),
                     'avg_days_overdue' => 0,
                     'max_days_overdue' => 0
@@ -267,8 +267,8 @@ class ReportController extends Controller
                     ->whereYear('created_at', $year)
                     ->select(
                         DB::raw('COUNT(*) as total_loans'),
-                        DB::raw('SUM(amount_neto) as total_amount'),
-                        DB::raw('AVG(utility) as avg_interest_rate'),
+                        DB::raw('SUM(amount) as total_amount'),
+                        DB::raw('AVG(utility_rate) as avg_interest_rate'),
                         DB::raw('COUNT(CASE WHEN status = "active" THEN 1 END) as active_loans'),
                         DB::raw('COUNT(CASE WHEN status = "cancelled" THEN 1 END) as cancelled_loans')
                     )
@@ -373,6 +373,90 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             // Log del error
             \Log::error('Error en reporte de recuperación y desembolsos: ' . $e->getMessage());
+            
+            // Devolver vista con mensaje de error
+            return redirect()->route('reports.index')
+                ->with('error', 'Error al generar el reporte: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Reporte de préstamos cancelados
+     */
+    public function cancelled(Request $request)
+    {
+        try {
+            $query = Credit::where('status', 'cancelled');
+                    
+            // Filtros adicionales
+            if ($request->has('user_id') && $request->user_id) {
+                $query->where('client_id', $request->user_id);
+            }
+            
+            if ($request->has('route_id') && $request->route_id) {
+                $query->where('route_id', $request->route_id);
+            }
+            
+            if (Schema::hasTable('routes') && $request->has('collector_id') && $request->collector_id) {
+                $query->whereHas('route', function($q) use ($request) {
+                    $q->where('collected_by', $request->collector_id);
+                });
+            }
+            
+            if ($request->has('date_filter') && $request->date_filter) {
+                switch ($request->date_filter) {
+                    case 'today':
+                        $query->whereDate('updated_at', date('Y-m-d'));
+                        break;
+                    case 'this_week':
+                        $query->whereBetween('updated_at', [
+                            now()->startOfWeek(), 
+                            now()->endOfWeek()
+                        ]);
+                        break;
+                    case 'this_month':
+                        $query->whereMonth('updated_at', date('m'))
+                              ->whereYear('updated_at', date('Y'));
+                        break;
+                    case 'last_month':
+                        $query->whereMonth('updated_at', now()->subMonth()->month)
+                              ->whereYear('updated_at', now()->subMonth()->year);
+                        break;
+                    case 'this_year':
+                        $query->whereYear('updated_at', date('Y'));
+                        break;
+                }
+            }
+            
+            $credits = $query->orderBy('updated_at', 'desc')->paginate(20);
+            
+            // Obtener rutas y cobradores para los filtros
+            try {
+                $routes = Route::orderBy('name')->get();
+            } catch (\Exception $e) {
+                $routes = collect([]);
+            }
+            
+            try {
+                $collectors = User::where('level', 'agent')
+                            ->orderBy('name')
+                            ->get();
+            } catch (\Exception $e) {
+                $collectors = collect([]);
+            }
+            
+            // Estadísticas para el dashboard
+            $stats = [
+                'total_credits' => $query->count(),
+                'total_amount' => $query->sum('amount'),
+                'total_interest' => $query->sum('utility_rate') * $query->sum('amount') / 100, // Calculado usando tasa de utilidad
+                'avg_days_to_cancel' => $query->count() > 0 ? $query->avg(DB::raw('DATEDIFF(updated_at, created_at)')) : 0,
+            ];
+            
+            return view('reports.cancelled', compact('credits', 'routes', 'collectors', 'stats'));
+        } catch (\Exception $e) {
+            // Log del error
+            \Log::error('Error en reporte de préstamos cancelados: ' . $e->getMessage());
             
             // Devolver vista con mensaje de error
             return redirect()->route('reports.index')

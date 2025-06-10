@@ -18,12 +18,13 @@
     <!-- Fonts -->
     <link rel="dns-prefetch" href="//fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css?family=Nunito" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
 
     <!-- Styles -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ asset('css/app.css') }}" rel="stylesheet">
-    <link href="{{ asset('css/sistema.css') }}" rel="stylesheet">
+    <link href="{{ asset('css/dark-theme.css') }}" rel="stylesheet">
     <link href="{{ asset('css/function-selector.css') }}" rel="stylesheet">
     <link href="{{ asset('css/custom.css') }}" rel="stylesheet">
     @stack('styles')
@@ -45,12 +46,35 @@
                 --input-bg: #ffffff;
                 --input-text: #212529;
                 --input-border: #ced4da;
-                --table-header-bg: #f8f9fa;
-                --table-row-hover: rgba(0,0,0,0.075);
-                --btn-primary-bg: #007bff;
+                --input-focus-border: #10775c;
+                --input-focus-rgb: 16, 119, 92; /* Para el box-shadow con opacidad */
+                --table-header-bg: #f0f5f3;
+                --table-row-hover: rgba(16,119,92,0.075);
+                --btn-primary-bg: #10775c;
                 --btn-primary-color: #ffffff;
                 --btn-secondary-bg: #6c757d;
                 --btn-secondary-color: #ffffff;
+                --link-color: #0e7e5c;
+                --link-hover-color: #095e45;
+                --badge-text: #fff;
+                --success-color: #28a745;
+                --danger-color: #dc3545;
+                --warning-color: #ffc107;
+                --info-color: #17a2b8;
+
+                /* Variables para alertas - Tema claro */
+                --success-color-bg: #d4edda;
+                --success-color-border: #c3e6cb;
+                --success-color-text: #155724;
+                --danger-color-bg: #f8d7da;
+                --danger-color-border: #f5c6cb;
+                --danger-color-text: #721c24;
+                --warning-color-bg: #fff3cd;
+                --warning-color-border: #ffeeba;
+                --warning-color-text: #856404;
+                --info-color-bg: #d1ecf1;
+                --info-color-border: #bee5eb;
+                --info-color-text: #0c5460;
             }
             
             body.dark-theme {
@@ -63,12 +87,35 @@
                 --menu-active: #0d4741;
                 --input-bg: #2c2c2c;
                 --input-text: #f0f0f0;
-                --input-border: #6c757d;
-                --table-header-bg: #2c2c2c;
+                --input-border: #555555;
+                --input-focus-border: #15967a;
+                --input-focus-rgb: 21, 150, 122; /* Para el box-shadow con opacidad */
+                --table-header-bg: rgba(16,119,92,0.25);
                 --table-row-hover: rgba(255,255,255,0.1);
                 --btn-default-bg: #343a40;
                 --btn-default-color: #f0f0f0;
-                --link-color: #62c4ff;
+                --link-color: #4db6ac;
+                --link-hover-color: #80cbc4;
+                --badge-text: #fff;
+                --success-color: #5cb85c;
+                --danger-color: #ff5252;
+                --warning-color: #ffd740;
+                --info-color: #40c4ff;
+                --text-muted: #aaaaaa;
+
+                /* Variables para alertas - Tema oscuro */
+                --success-color-bg: #1a3c23;
+                --success-color-border: #285734;
+                --success-color-text: #a8d5b5;
+                --danger-color-bg: #4d1c20;
+                --danger-color-border: #72292f;
+                --danger-color-text: #f5c6cb;
+                --warning-color-bg: #524415;
+                --warning-color-border: #796621;
+                --warning-color-text: #ffeeba;
+                --info-color-bg: #173b43;
+                --info-color-border: #225a68;
+                --info-color-text: #bee5eb;
             }
 
             body {
@@ -79,7 +126,9 @@
                 color: var(--text-color);
                 transition: background-color 0.3s, color 0.3s;
                 overflow-x: hidden;
-                font-family: 'Nunito', sans-serif;
+                font-family: 'Roboto', 'Nunito', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
             }
 
             #app {
@@ -143,11 +192,28 @@
             }
             
             .theme-toggle {
-                cursor: pointer;
-                background: none;
+                background: transparent;
+                color: rgba(255,255,255,0.9);
                 border: none;
+                padding: 8px;
+                cursor: pointer;
+                transition: all 0.3s;
+                border-radius: 50%;
+                width: 36px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .theme-toggle:hover {
                 color: white;
-                font-size: 1.2rem;
+                background-color: rgba(255,255,255,0.2);
+            }
+            
+            .theme-toggle:focus {
+                outline: none;
+                box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
             }
 
             .menu-item {
@@ -475,12 +541,20 @@
                 --menu-active: #0d4741;
                 --input-bg: #2c2c2c;
                 --input-text: #f0f0f0;
-                --input-border: #6c757d;
-                --table-header-bg: #2c2c2c;
+                --input-border: #555555;
+                --input-focus-border: #15967a;
+                --table-header-bg: rgba(16,119,92,0.25);
                 --table-row-hover: rgba(255,255,255,0.1);
                 --btn-default-bg: #343a40;
                 --btn-default-color: #f0f0f0;
-                --link-color: #62c4ff;
+                --link-color: #4db6ac;
+                --link-hover-color: #80cbc4;
+                --badge-text: #fff;
+                --success-color: #5cb85c;
+                --danger-color: #ff5252;
+                --warning-color: #ffd740;
+                --info-color: #40c4ff;
+                --text-muted: #aaaaaa;
             }
             
             /* Ajustes para badges en tema oscuro */
@@ -577,15 +651,46 @@
             
             .theme-toggle {
                 background: transparent;
-                color: rgba(255,255,255,0.7);
+                color: rgba(255,255,255,0.9);
                 border: none;
-                padding: 3px 6px;
+                padding: 8px;
                 cursor: pointer;
-                transition: color 0.3s;
+                transition: all 0.3s;
+                border-radius: 50%;
+                width: 36px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
             
             .theme-toggle:hover {
                 color: white;
+                background-color: rgba(255,255,255,0.2);
+            }
+            
+            .theme-toggle:focus {
+                outline: none;
+                box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
+            }
+            
+            /* Mejorar legibilidad en menú lateral */
+            .sidebar .menu-item, 
+            .sidebar .user-info,
+            .sidebar .menu-section {
+                font-size: 0.95rem;
+                font-weight: 500;
+                letter-spacing: 0.3px;
+            }
+            
+            .sidebar .user-info strong {
+                font-size: 1.05rem;
+                font-weight: 600;
+            }
+            
+            .sidebar .user-info small {
+                font-size: 0.85rem;
+                opacity: 0.9;
             }
 
             /* Estilos para el icono monetario en sección de cobrador */
@@ -653,7 +758,7 @@
                             <i class="fas fa-chevron-left"></i>
                         </button>
                         <button id="theme-toggle" class="theme-toggle" title="Cambiar tema">
-                            <i class="fas fa-sun"></i>
+                            <i class="fas fa-moon"></i>
                         </button>
                     </div>
                 </div>

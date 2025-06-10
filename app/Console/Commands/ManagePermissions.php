@@ -146,41 +146,7 @@ class ManagePermissions extends Command
             return 1;
         }
         
-        if ($all) {
-            // Asignar acceso a todos los módulos
-            $modules = DB::table('role_module_permissions')
-                ->select('module')
-                ->distinct()
-                ->pluck('module')
-                ->toArray();
-                
-            if (empty($modules)) {
-                $this->info('No modules found in the database');
-                return 0;
-            }
-            
-            foreach ($modules as $mod) {
-                DB::table('role_module_permissions')
-                    ->updateOrInsert(
-                        ['role_id' => $role->id, 'module' => $mod],
-                        ['has_access' => true, 'updated_at' => now()]
-                    );
-            }
-            
-            $this->info("Assigned access to all modules for role: {$role->name}");
-            
-        } else {
-            // Asignar acceso a un módulo específico
-            DB::table('role_module_permissions')
-                ->updateOrInsert(
-                    ['role_id' => $role->id, 'module' => $module],
-                    ['has_access' => true, 'updated_at' => now()]
-                );
-                
-            $this->info("Assigned access to module '{$module}' for role: {$role->name}");
-        }
-        
-        return 0;
+        return $this->assignPermissions($role, $module, $all);
     }
     
     /**
@@ -355,5 +321,42 @@ class ManagePermissions extends Command
         
         $this->info("\nPermissions synced successfully");
         return 0;
+    }
+
+    /**
+     * Asigna permisos a un rol
+     */
+    protected function assignPermissions($role, $module, $all = false)
+    {
+        try {
+            if ($all) {
+                // Obtener todos los módulos disponibles
+                $modules = DB::table('role_module_permissions')
+                    ->select('module')
+                    ->distinct()
+                    ->pluck('module')
+                    ->toArray();
+                
+                if (empty($modules)) {
+                    $this->info('No se encontraron módulos en la base de datos');
+                    return 0;
+                }
+                
+                // Asignar todos los módulos usando el nuevo método seguro
+                $permissions = array_fill_keys($modules, true);
+                $role->assignModulePermissions($permissions);
+                
+                $this->info("Se asignaron todos los módulos al rol: {$role->name}");
+            } else {
+                // Asignar un módulo específico usando el nuevo método seguro
+                $role->assignModulePermission($module, true);
+                $this->info("Se asignó el módulo '{$module}' al rol: {$role->name}");
+            }
+            
+            return 0;
+        } catch (\Exception $e) {
+            $this->error("Error al asignar permisos: " . $e->getMessage());
+            return 1;
+        }
     }
 } 

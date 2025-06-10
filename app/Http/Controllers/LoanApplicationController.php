@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\CreditType;
 use App\Models\LoanApplication;
+use App\Models\ClientDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -228,5 +229,34 @@ class LoanApplicationController extends Controller
         return redirect()
             ->route('loan-applications.show', $application)
             ->with('success', 'Solicitud rechazada exitosamente.');
+    }
+
+    /**
+     * Subir documento a una solicitud
+     */
+    public function uploadDocument(Request $request, LoanApplication $application)
+    {
+        $request->validate([
+            'document_type' => 'required|string',
+            'name' => 'required|string|max:255',
+            'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png|max:10240'
+        ]);
+
+        $path = $request->file('file')->store('documents/loan_applications/' . $application->id, 'public');
+        
+        $document = new ClientDocument([
+            'user_id' => $application->client_id,
+            'document_type' => $request->document_type,
+            'name' => $request->name,
+            'file_path' => $path,
+            'upload_date' => now(),
+            'status' => 'pending_review'
+        ]);
+
+        $application->documents()->save($document);
+
+        return redirect()
+            ->back()
+            ->with('success', 'Documento cargado exitosamente.');
     }
 } 

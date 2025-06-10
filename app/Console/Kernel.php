@@ -19,6 +19,9 @@ class Kernel extends ConsoleKernel
         Commands\ManagePermissions::class,
         \App\Console\Commands\CreatePaymentsTable::class,
         Commands\UpdateModulePermissions::class,
+        Commands\AssignSuperAdminPermissions::class,
+        Commands\TestRolePermissions::class,
+        Commands\CleanDuplicatePermissions::class,
     ];
 
     /**

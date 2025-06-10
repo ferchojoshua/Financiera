@@ -46,19 +46,19 @@
                             <h5 class="border-bottom pb-2">Información del Cliente</h5>
                             <dl class="row">
                                 <dt class="col-sm-4">Empresa:</dt>
-                                <dd class="col-sm-8">{{ $solicitud->client->business_name }}</dd>
+                                <dd class="col-sm-8">{{ $solicitud->client->business_name ?? 'N/A' }}</dd>
                                 
                                 <dt class="col-sm-4">NIT:</dt>
-                                <dd class="col-sm-8">{{ $solicitud->client->tax_id }}</dd>
+                                <dd class="col-sm-8">{{ $solicitud->client->tax_id ?? 'N/A' }}</dd>
                                 
                                 <dt class="col-sm-4">Contacto:</dt>
-                                <dd class="col-sm-8">{{ $solicitud->client->name }}</dd>
+                                <dd class="col-sm-8">{{ $solicitud->client->name ?? 'N/A' }}</dd>
                                 
                                 <dt class="col-sm-4">Email:</dt>
-                                <dd class="col-sm-8">{{ $solicitud->client->email }}</dd>
+                                <dd class="col-sm-8">{{ $solicitud->client->email ?? 'N/A' }}</dd>
                                 
                                 <dt class="col-sm-4">Teléfono:</dt>
-                                <dd class="col-sm-8">{{ $solicitud->client->phone }}</dd>
+                                <dd class="col-sm-8">{{ $solicitud->client->phone ?? 'N/A' }}</dd>
                             </dl>
                         </div>
                         <div class="col-md-6">
@@ -102,39 +102,51 @@
                     <!-- Documentos -->
                     <div class="row mb-4">
                         <div class="col-12">
-                            <h5 class="border-bottom pb-2">Documentos Adjuntos</h5>
-                            @if($solicitud->documents->count() > 0)
-                                <div class="table-responsive">
-                                    <table class="table table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th>Nombre</th>
-                                                <th>Tipo</th>
-                                                <th>Fecha de Carga</th>
-                                                <th>Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach($solicitud->documents as $document)
-                                                <tr>
-                                                    <td>{{ $document->name }}</td>
-                                                    <td>{{ $document->document_type }}</td>
-                                                    <td>{{ $document->upload_date->format('d/m/Y H:i') }}</td>
-                                                    <td>
-                                                        <a href="{{ Storage::url($document->file_path) }}" 
-                                                           class="btn btn-sm btn-info" 
-                                                           target="_blank">
-                                                            <i class="fas fa-download"></i> Descargar
-                                                        </a>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">Documentos Adjuntos</h5>
+                                    <button type="button" 
+                                            class="btn btn-primary btn-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#uploadDocumentModal">
+                                        <i class="fas fa-plus"></i> Agregar Documento
+                                    </button>
                                 </div>
-                            @else
-                                <p class="text-muted">No hay documentos adjuntos a esta solicitud.</p>
-                            @endif
+                                <div class="card-body">
+                                    @if($solicitud->documents->count() > 0)
+                                        <div class="table-responsive">
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Nombre</th>
+                                                        <th>Tipo</th>
+                                                        <th>Fecha de Carga</th>
+                                                        <th>Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($solicitud->documents as $document)
+                                                        <tr>
+                                                            <td>{{ $document->name }}</td>
+                                                            <td>{{ $document->document_type }}</td>
+                                                            <td>{{ $document->created_at->format('d/m/Y H:i') }}</td>
+                                                            <td>
+                                                                <a href="{{ Storage::url($document->file_path) }}" 
+                                                                   class="btn btn-sm btn-info" 
+                                                                   target="_blank">
+                                                                    <i class="fas fa-download"></i> Descargar
+                                                                </a>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @else
+                                        <p class="text-muted mb-0">No hay documentos adjuntos a esta solicitud.</p>
+                                    @endif
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -163,7 +175,7 @@
                                     </a>
                                 @endif
                                 
-                                @if(in_array($solicitud->status, ['pending', 'under_review']))
+                                @if(in_array($solicitud->status, ['pending', 'under_review']) && (auth()->user()->role === 'superadmin' || auth()->user()->level === 'admin' || auth()->user()->hasPermission('approve-loans')))
                                     <button type="button" 
                                             class="btn btn-success" 
                                             data-bs-toggle="modal" 
@@ -200,7 +212,7 @@
                 <div class="modal-body">
                     <div class="alert alert-info">
                         <strong>Información de la solicitud:</strong><br>
-                        Cliente: {{ $solicitud->client->business_name }}<br>
+                        Cliente: {{ $solicitud->client->business_name ?? $solicitud->client->name ?? 'N/A' }}<br>
                         Monto: ${{ number_format($solicitud->amount_requested, 2) }}<br>
                         Plazo: {{ $solicitud->term_months }} meses
                     </div>
@@ -217,7 +229,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success" onclick="submitApproveForm(event)">
+                    <button type="submit" class="btn btn-success">
                         <i class="fas fa-check"></i> Confirmar Aprobación
                     </button>
                 </div>
@@ -251,9 +263,50 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger" onclick="submitRejectForm(event)">
+                    <button type="submit" class="btn btn-danger">
                         <i class="fas fa-times"></i> Confirmar Rechazo
                     </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Cargar Documento -->
+<div class="modal fade" id="uploadDocumentModal" tabindex="-1" aria-labelledby="uploadDocumentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ route('solicitudes.upload-document', $solicitud->id) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadDocumentModalLabel">Cargar Documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="document_type" class="form-label">Tipo de Documento</label>
+                        <select class="form-select" id="document_type" name="document_type" required>
+                            <option value="">Seleccionar...</option>
+                            <option value="identificacion">Identificación</option>
+                            <option value="comprobante_ingresos">Comprobante de Ingresos</option>
+                            <option value="estados_financieros">Estados Financieros</option>
+                            <option value="declaracion_impuestos">Declaración de Impuestos</option>
+                            <option value="otros">Otros</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="document_name" class="form-label">Nombre del Documento</label>
+                        <input type="text" class="form-control" id="document_name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="document_file" class="form-label">Archivo</label>
+                        <input type="file" class="form-control" id="document_file" name="file" required>
+                        <div class="form-text">Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG. Máximo 10MB.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Subir Documento</button>
                 </div>
             </form>
         </div>
@@ -263,6 +316,12 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Verificar que Bootstrap está disponible
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap no está cargado');
+        return;
+    }
+
     // Debug para verificar que los modales están funcionando
     document.querySelectorAll('[data-bs-toggle="modal"]').forEach(function(button) {
         button.addEventListener('click', function() {
@@ -271,76 +330,87 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Inicializar los modales
-    var approveModal = new bootstrap.Modal(document.getElementById('approveModal'));
-    var rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    const approveModal = new bootstrap.Modal(document.getElementById('approveModal'));
+    const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    const uploadModal = new bootstrap.Modal(document.getElementById('uploadDocumentModal'));
+
+    // Función para manejar errores de respuesta
+    function handleResponseError(response) {
+        if (!response.ok) {
+            return response.json().then(json => {
+                throw new Error(json.message || 'Error en la solicitud');
+            });
+        }
+        return response.json();
+    }
+
+    // Función para mostrar mensajes de error
+    function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'alert alert-danger alert-dismissible fade show';
+        errorDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.container').firstChild);
+    }
 
     // Función para enviar formulario
-    function sendForm(form, modal) {
+    function submitForm(form, modal) {
         const formData = new FormData(form);
-        const token = document.querySelector('meta[name="csrf-token"]').content;
         
-        console.log('Enviando formulario:', form.action);
-        console.log('Datos:', Object.fromEntries(formData));
-
-        return fetch(form.action, {
+        fetch(form.action, {
             method: 'POST',
             body: formData,
             headers: {
-                'X-CSRF-TOKEN': token,
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json'
             },
             credentials: 'same-origin'
         })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(json => Promise.reject(json));
-            }
-            return response.json();
-        })
+        .then(handleResponseError)
         .then(data => {
-            console.log('Respuesta exitosa:', data);
             if (data.success) {
                 modal.hide();
-                window.location.reload();
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                } else {
+                    window.location.reload();
+                }
             } else {
                 throw new Error(data.message || 'Error al procesar la solicitud');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert(error.message || 'Error al procesar la solicitud');
+            showError(error.message);
         });
     }
 
-    // Función para manejar el envío del formulario de aprobación
-    window.submitApproveForm = function(event) {
-        event.preventDefault();
-        const form = document.getElementById('approveForm');
-        if (!form) {
-            console.error('No se encontró el formulario de aprobación');
-            return;
-        }
-        sendForm(form, approveModal);
-    };
+    // Manejar formulario de aprobación
+    const approveForm = document.getElementById('approveForm');
+    if (approveForm) {
+        approveForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            submitForm(this, approveModal);
+        });
+    }
 
-    // Función para manejar el envío del formulario de rechazo
-    window.submitRejectForm = function(event) {
-        event.preventDefault();
-        const form = document.getElementById('rejectForm');
-        if (!form) {
-            console.error('No se encontró el formulario de rechazo');
-            return;
-        }
-
-        const rejectionReason = form.querySelector('#rejection_reason').value.trim();
-        if (!rejectionReason) {
-            alert('Por favor, ingrese el motivo del rechazo');
-            return;
-        }
-
-        sendForm(form, rejectModal);
-    };
+    // Manejar formulario de rechazo
+    const rejectForm = document.getElementById('rejectForm');
+    if (rejectForm) {
+        rejectForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const rejectionReason = this.querySelector('#rejection_reason').value.trim();
+            if (!rejectionReason) {
+                showError('Por favor, ingrese el motivo del rechazo');
+                return;
+            }
+            
+            submitForm(this, rejectModal);
+        });
+    }
 });
 </script>
 @endpush 

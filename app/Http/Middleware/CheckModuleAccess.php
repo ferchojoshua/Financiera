@@ -33,32 +33,21 @@ class CheckModuleAccess
             return $next($request);
         }
         
-        // Si el usuario es superadmin, permitir acceso a todo
-        if ($user->isSuperAdmin()) {
-            return $next($request);
-        }
-        
         try {
             // Identificar el módulo al que pertenece la ruta actual
             if (!$module) {
                 $currentRouteName = Route::currentRouteName();
                 $module = $this->determineModuleFromRoute($currentRouteName);
                 
-                // Si no se pudo determinar el módulo, permitir acceso
+                // Si no se pudo determinar el módulo, denegar acceso
                 if (!$module) {
-                    // Registrar advertencia
                     Log::warning("No se pudo determinar el módulo para la ruta: {$currentRouteName}");
-                    return $next($request);
+                    return redirect()->route('home')->with('error', 'No tienes acceso a esta sección.');
                 }
             }
             
             // Verificar si el usuario tiene acceso al módulo
             if ($user->hasModuleAccess($module)) {
-                // Registrar acceso exitoso en modo debug
-                if (config('app.debug', false)) {
-                    Log::info("Usuario {$user->id} ({$user->name}) accedió al módulo {$module}");
-                }
-                
                 return $next($request);
             }
             
@@ -71,18 +60,12 @@ class CheckModuleAccess
             Log::warning("Usuario {$user->id} ({$user->name}) intentó acceder al módulo {$module} sin permiso");
             
             // Redirigir a la página de acceso denegado
-            return redirect()->route('accessDenied', ['module' => $module]);
+            return redirect()->route('home')->with('error', 'No tienes acceso a esta sección.');
+        
         } catch (\Exception $e) {
             // Registrar error
             Log::error("Error verificando permisos: " . $e->getMessage());
-            
-            // En modo debug, permitir acceso
-            if (config('app.debug', false)) {
-                return $next($request);
-            }
-            
-            // Redirigir a la página de error
-            return redirect()->route('error', ['message' => 'Error al verificar permisos']);
+            return redirect()->route('home')->with('error', 'Error al verificar permisos de acceso.');
         }
     }
 
