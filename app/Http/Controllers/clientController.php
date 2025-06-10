@@ -76,10 +76,90 @@ class ClientController extends Controller
     }
 
     /**
+     * Muestra la página para gestionar los tipos de cliente.
+     */
+    public function types()
+    {
+        if (!auth()->user()->hasModuleAccess('clientes', 'view')) { // O un permiso más específico si existe
+            return redirect()->route('home')->with('error', 'No tienes permisos para gestionar tipos de cliente.');
+        }
+
+        $types = DB::table('client_types')->orderBy('name')->get();
+
+        return view('client.types', compact('types'));
+    }
+
+    /**
+     * Almacena un nuevo tipo de cliente.
+     */
+    public function storeType(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255|unique:client_types',
+            'description' => 'nullable|string',
+            'color' => 'required|string|max:7',
+        ]);
+
+        DB::table('client_types')->insert([
+            'name' => $request->name,
+            'description' => $request->description,
+            'color' => $request->color,
+            'is_active' => $request->has('is_active'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Tipo de cliente creado correctamente.');
+    }
+
+    /**
+     * Actualiza un tipo de cliente existente.
+     */
+    public function updateType(Request $request, $id)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255|unique:client_types,name,' . $id,
+            'description' => 'nullable|string',
+            'color' => 'required|string|max:7',
+        ]);
+
+        DB::table('client_types')->where('id', $id)->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'color' => $request->color,
+            'is_active' => $request->has('is_active'),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Tipo de cliente actualizado correctamente.');
+    }
+
+    /**
+     * Elimina un tipo de cliente.
+     */
+    public function destroyType($id)
+    {
+        // Opcional: Verificar si el tipo está en uso antes de borrar
+        $is_in_use = Client::where('client_type_id', $id)->exists();
+
+        if ($is_in_use) {
+            return response()->json(['error' => 'No se puede eliminar el tipo porque está en uso.'], 422);
+        }
+
+        DB::table('client_types')->where('id', $id)->delete();
+
+        return response()->json(['success' => 'Tipo de cliente eliminado correctamente.']);
+    }
+
+    /**
      * Mostrar formulario para crear un nuevo cliente
      */
     public function create()
     {
+        if (!auth()->user()->hasModuleAccess('clientes', 'create')) {
+            return redirect()->route('home')->with('error', 'No tienes permisos para crear clientes.');
+        }
+
         try {
             // Obtener tipos de cliente
             $clientTypes = DB::table('client_types')
@@ -105,6 +185,8 @@ class ClientController extends Controller
             
             // Obtener tipos de crédito
             $creditTypes = CreditType::where('is_active', true)
+                ->select('id', 'name', 'min_amount', 'max_amount', 'interest_rate')
+                ->groupBy('name', 'id', 'min_amount', 'max_amount', 'interest_rate')
                 ->orderBy('name')
                 ->get();
             
@@ -138,6 +220,10 @@ class ClientController extends Controller
      */
     public function store(Request $request)
     {
+        if (!auth()->user()->hasModuleAccess('clientes', 'create')) {
+            return back()->with('error', 'No tienes permisos para crear clientes.');
+        }
+        
         try {
             // Log para diagnóstico
             Log::info('Request completo:', [
@@ -160,6 +246,8 @@ class ClientController extends Controller
                 'state' => 'nullable|string|max:100',
                 'country' => 'nullable|string|max:100',
                 'province' => 'nullable|string|max:100',
+                'lat' => 'nullable|numeric',
+                'lng' => 'nullable|numeric',
                 'birthdate' => 'nullable|date',
                 'gender' => 'nullable|in:M,F',
                 'civil_status' => 'nullable|in:soltero,casado,divorciado,viudo,union_libre',
@@ -375,6 +463,8 @@ class ClientController extends Controller
             
             // Obtener tipos de crédito
             $creditTypes = CreditType::where('is_active', true)
+                ->select('id', 'name', 'min_amount', 'max_amount', 'interest_rate')
+                ->groupBy('name', 'id', 'min_amount', 'max_amount', 'interest_rate')
                 ->orderBy('name')
                 ->get();
             
@@ -437,6 +527,8 @@ class ClientController extends Controller
                 'state' => 'nullable|string|max:100',
                 'country' => 'nullable|string|max:100',
                 'province' => 'nullable|string|max:100',
+                'lat' => 'nullable|numeric',
+                'lng' => 'nullable|numeric',
                 'birthdate' => 'nullable|date',
                 'gender' => 'nullable|in:M,F',
                 'civil_status' => 'nullable|in:soltero,casado,divorciado,viudo,union_libre',
@@ -478,7 +570,7 @@ class ClientController extends Controller
             DB::commit();
             
             return redirect()->route('clients.show', ['client' => $client->id])
-                ->with('success', 'Cliente actualizado correctamente');
+                ->with('success', 'Cliente actualizado exitosamente');
                 
         } catch (\Exception $e) {
             // Revertir transacción en caso de error
@@ -617,14 +709,16 @@ class ClientController extends Controller
         $rules = [
             'name' => 'required|string|max:255',
             'last_name' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255|unique:clients,email' . ($clientId ? ',' . $clientId : ''),
+            'email' => 'nullable|email|max:255|unique:clients,email,' . $clientId,
             'phone' => 'required|string|max:20',
             'nit' => 'required|string|max:20',
             'dui' => 'nullable|string|max:20',
             'address' => 'required|string',
+            'lat' => 'nullable|numeric',
+            'lng' => 'nullable|numeric',
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:100',
-            'country' => 'nullable|string|max:100|default:El Salvador',
+            'country' => 'nullable|string|max:100',
             'birthdate' => 'nullable|date',
             'gender' => 'nullable|in:M,F',
             'civil_status' => 'nullable|in:soltero,casado,divorciado,viudo,union_libre',
@@ -698,5 +792,29 @@ class ClientController extends Controller
                 ClientRecord::STATUS_IMPORTANT
             );
         }
+    }
+
+    /**
+     * Reporte de rendimiento de clientes.
+     */
+    public function performance(Request $request)
+    {
+        // Lógica del reporte de rendimiento (a desarrollar)
+        // Por ahora, solo devolvemos la vista con datos de ejemplo.
+        $clients = Client::withCount('credits')->orderBy('credits_count', 'desc')->take(10)->get();
+
+        return view('clients.performance', compact('clients'));
+    }
+
+    /**
+     * Reporte general de clientes.
+     */
+    public function report(Request $request)
+    {
+        // Lógica del reporte de clientes (a desarrollar)
+        $totalClients = Client::count();
+        $activeClients = Client::where('is_active', true)->count();
+        
+        return view('clients.report', compact('totalClients', 'activeClients'));
     }
 } 

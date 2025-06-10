@@ -79,19 +79,14 @@ class HomeController extends Controller
         $startOfMonth = Carbon::now()->startOfMonth();
 
         // Total recuperado del mes
-        $totalRecuperado = Payment::whereBetween('created_at', [$startOfMonth, $today])
-            ->sum('amount');
+        $totalRecuperado = DB::table('summary')->whereBetween('created_at', [$startOfMonth, $today])->sum('amount');
 
         // Total desembolsado del mes
-        $totalDesembolsado = Credit::whereBetween('created_at', [$startOfMonth, $today])
-            ->sum('amount_neto');
+        $totalDesembolsado = Credit::whereBetween('created_at', [$startOfMonth, $today])->sum('amount_neto');
             
         // Total de morosos
-        $creditosMorosos = Credit::where('status', 'inprogress')
-            ->whereRaw('DATEDIFF(NOW(), updated_at) > 7')
-            ->get();
-            
-        $totalMorosos = count($creditosMorosos);
+        $creditosMorosos = Credit::where('status', 'overdue')->get();
+        $totalMorosos = $creditosMorosos->count();
 
         // Porcentaje de recuperación
         $porcentajeRecuperacion = $totalDesembolsado > 0 
@@ -99,33 +94,32 @@ class HomeController extends Controller
             : 0;
 
         // Clientes activos
-        $clientesActivos = Credit::where('status', 'inprogress')
-            ->count();
+        $clientesActivos = Credit::where('status', 'inprogress')->distinct('client_id')->count();
 
         // Últimos pagos
         $ultimosPagos = DB::table('summary')
-            ->select('summary.amount as monto', 'summary.created_at as fecha', 'users.name as cliente')
+            ->select('summary.amount as monto', 'summary.created_at as fecha', 'clients.name as cliente_nombre', 'clients.last_name as cliente_apellido')
             ->join('credit', 'summary.id_credit', '=', 'credit.id')
-            ->join('users', 'credit.id_user', '=', 'users.id')
+            ->join('clients', 'credit.client_id', '=', 'clients.id')
             ->orderBy('summary.created_at', 'desc')
             ->limit(5)
             ->get();
             
         // Morosos recientes
         $morososRecientes = [];
-        foreach ($creditosMorosos as $credito) {
-            $cliente = User::find($credito->id_user);
+        foreach ($creditosMorosos->take(5) as $credito) {
+            $cliente = $credito->client;
             if ($cliente) {
-                $diasAtraso = Carbon::parse($credito->updated_at)->diffInDays(Carbon::now());
+                // Usar updated_at si overdue_date no existe o es nulo
+                $fechaAtraso = $credito->overdue_date ?? $credito->updated_at;
+                $diasAtraso = Carbon::parse($fechaAtraso)->diffInDays(Carbon::now());
                 $morososRecientes[] = (object)[
-                    'cliente' => $cliente->name,
+                    'cliente' => $cliente->name . ' ' . $cliente->last_name,
                     'dias_atraso' => $diasAtraso,
-                    'monto_pendiente' => $credito->amount_neto - Payment::where('id_credit', $credito->id)->sum('amount'),
+                    'monto_pendiente' => $credito->balance,
                     'id' => $credito->id
                 ];
             }
-            
-            if (count($morososRecientes) >= 5) break;
         }
 
         return [

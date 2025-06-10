@@ -250,571 +250,128 @@
                 top: 20px;
                 left: 20px;
                 z-index: 1001;
-                background: var(--menu-color);
-                border: none;
+                background-color: var(--menu-color);
                 color: white;
-                padding: 10px;
+                border: none;
+                padding: 10px 15px;
                 border-radius: 5px;
-                cursor: pointer;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             }
 
-            @media (max-width: 768px) {
-                #sidebar {
-                    left: calc(var(--menu-width) * -1);
-                    z-index: 1050;
-                    width: 85%;
-                    max-width: 320px;
-                    box-shadow: 0 0 15px rgba(0,0,0,0.2);
-                }
-
-                #content {
-                    margin-left: 0;
-                    width: 100%;
-                    padding: 15px;
-                }
-
-                #menu-toggle {
-                    display: block;
-                    z-index: 1060;
-                }
-
-                #sidebar.active {
-                    left: 0;
-                    padding-bottom: 80px;
-                }
-
-                .card {
-                    overflow-x: auto;
-                }
-                
-                .table-responsive {
-                    overflow-x: auto;
-                }
-                
-                body.menu-open {
-                    overflow: hidden;
-                }
-                
-                body.menu-open #sidebar {
-                    overflow-y: auto;
-                    height: 100vh;
-                }
-            }
-
-            .card {
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
-                border-radius: 10px;
-                border: none;
-                margin-bottom: 20px;
-                background-color: var(--card-bg);
-                color: var(--text-color);
-                transition: background-color 0.3s, color 0.3s;
-            }
-
-            .card-header {
-                border-top-left-radius: 10px !important;
-                border-top-right-radius: 10px !important;
-                font-weight: bold;
-                padding: 12px 20px;
-            }
-
-            .card-body {
-                padding: 20px;
-            }
-
-            /* Estilos para formularios */
-            .form-control, .form-select {
-                border-radius: 6px;
-                padding: 10px 12px;
-                border: 1px solid var(--input-border);
-                background-color: var(--input-bg);
-                color: var(--input-text);
-                transition: all 0.3s;
-                height: auto;
-            }
-
-            .form-control:focus, .form-select:focus {
-                border-color: var(--menu-color);
-                box-shadow: 0 0 0 0.2rem rgba(0, 191, 165, 0.25);
-            }
-
-            label {
-                font-weight: 600;
-                margin-bottom: 8px;
-                color: var(--text-color);
-            }
-
-            .btn {
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-weight: 600;
-                transition: all 0.3s;
-            }
-
-            .btn-primary {
-                background-color: var(--btn-primary-bg);
-                border-color: var(--btn-primary-bg);
-                color: var(--btn-primary-color);
-            }
-
-            .btn-primary:hover {
-                background-color: #0069d9;
-                border-color: #0062cc;
-            }
-
-            .btn-secondary {
-                background-color: var(--btn-secondary-bg);
-                border-color: var(--btn-secondary-bg);
-                color: var(--btn-secondary-color);
-            }
-
-            .btn-secondary:hover {
-                background-color: #5a6268;
-                border-color: #545b62;
-            }
-
-            /* Colores y fondos */
-            .bg-success { background-color: #28a745 !important; }
-            .bg-warning { background-color: #ffc107 !important; }
-            .bg-danger { background-color: #dc3545 !important; }
-            .bg-info { background-color: #17a2b8 !important; }
-            .bg-primary { background-color: #007bff !important; }
-            
-            /* Dark theme adaptations */
-            body.dark-theme .card {
-                box-shadow: 0 0 15px rgba(0,0,0,0.3);
-            }
-            
-            body.dark-theme .table {
-                color: var(--text-color);
-            }
-                
-            body.dark-theme .table thead th {
-                background-color: var(--table-header-bg);
-                color: var(--text-color);
-            }
-                
-            /* Estilos para menús desplegables */
-            .menu-section {
-                color: white;
-                display: block;
-                position: relative;
-                padding: 15px 20px;
-                cursor: pointer;
-                border-bottom: 1px solid rgba(255,255,255,0.05);
-                font-weight: bold;
-                transition: background-color 0.3s;
-            }
-            
-            .menu-section:hover {
-                background-color: rgba(255,255,255,0.1);
-            }
-            
-            .menu-section i.toggle-icon {
+            #hide-sidebar, #show-sidebar {
                 position: absolute;
-                right: 20px;
-                top: 50%;
-                transform: translateY(-50%);
-                transition: all 0.3s;
-            }
-            
-            .menu-section.collapsed i.toggle-icon {
-                transform: translateY(-50%) rotate(-90deg);
-            }
-            
-            .submenu {
-                max-height: 0;
-                overflow: hidden;
-                transition: max-height 0.3s ease;
-            }
-            
-            .submenu.show {
-                max-height: 1000px;
-            }
-            
-            .submenu .menu-item {
-                padding-left: 40px;
-            }
-            
-            /* Colores de sección para el menú */
-            .menu-section.configuracion { background-color: rgba(0, 150, 136, 0.8); }
-            .menu-section.clientes { background-color: rgba(0, 137, 123, 0.8); }
-            .menu-section.pymes { background-color: rgba(0, 121, 107, 0.8); }
-            .menu-section.reportes { background-color: rgba(0, 105, 92, 0.8); }
-            .menu-section.cobranza { background-color: rgba(0, 77, 64, 0.8); }
-            .menu-section.seguridad { background-color: rgba(0, 150, 136, 0.8); }
-            .menu-section.rutas { background-color: rgba(0, 137, 123, 0.8); }
-            .menu-section.caja { background-color: rgba(0, 121, 107, 0.8); }
-
-            /* Estilos para tablas */
-            .table {
-                width: 100%;
-                margin-bottom: 1rem;
-                color: var(--text-color);
-                border-collapse: separate;
-                border-spacing: 0;
+                bottom: 10px;
+                left: 10px;
+                background: rgba(0,0,0,0.2);
+                color: white;
+                border-radius: 5px;
             }
 
-            .table th, .table td {
-                padding: 12px 15px;
-                vertical-align: middle;
-                border-top: 1px solid var(--card-border);
-            }
-
-            .table thead th {
-                vertical-align: bottom;
-                border-bottom: 2px solid var(--card-border);
-                background-color: var(--table-header-bg);
-                color: var(--text-color);
-                font-weight: 600;
-            }
-
-            .table-striped tbody tr:nth-of-type(odd) {
-                background-color: rgba(0, 0, 0, 0.05);
-            }
-
-            .table-hover tbody tr:hover {
-                background-color: var(--table-row-hover);
-            }
-
-            /* Estilos para alertas */
-            .alert {
-                border-radius: 8px;
-                padding: 15px 20px;
-                margin-bottom: 20px;
-                border: 1px solid transparent;
-                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            }
-            
-            .alert-success {
-                color: #155724;
-                background-color: #d4edda;
-                border-color: #c3e6cb;
-            }
-            
-            .alert-danger {
-                color: #721c24;
-                background-color: #f8d7da;
-                border-color: #f5c6cb;
-            }
-            
-            .alert-warning {
-                color: #856404;
-                background-color: #fff3cd;
-                border-color: #ffeeba;
-            }
-            
-            .alert-info {
-                color: #0c5460;
-                background-color: #d1ecf1;
-                border-color: #bee5eb;
-            }
-
-            /* Estilos para el indicador de carga */
-            .loading-overlay {
+            #show-sidebar {
                 position: fixed;
+                left: 10px;
+                bottom: 10px;
+                z-index: 999;
+            }
+            
+            #hide-sidebar:hover, #show-sidebar:hover {
+                background: rgba(0,0,0,0.4);
+            }
+
+            .submenu {
+                list-style: none;
+                padding-left: 20px;
+                background-color: rgba(0,0,0,0.1);
+            }
+
+            .menu-section {
+                cursor: pointer;
+            }
+
+            .menu-section .fa-angle-down {
+                transition: transform 0.3s;
+            }
+
+            .menu-section.collapsed .fa-angle-down {
+                transform: rotate(-90deg);
+            }
+
+            .loading-overlay {
+                position: absolute;
                 top: 0;
                 left: 0;
                 width: 100%;
                 height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
+                background: rgba(255, 255, 255, 0.7);
                 display: flex;
-                justify-content: center;
                 align-items: center;
+                justify-content: center;
                 z-index: 9999;
             }
-            
-            .spinner-border {
-                width: 3rem;
-                height: 3rem;
+
+            body.dark-theme .loading-overlay {
+                background: rgba(0, 0, 0, 0.7);
             }
 
-            /* Estilos para tema oscuro */
-            body.dark-theme {
-                --bg-color: #121212;
-                --text-color: #f0f0f0;
-                --card-bg: #1e1e1e;
-                --card-border: rgba(255,255,255,0.15);
-                --menu-color: #1a7b6f;
-                --menu-hover: #145e55;
-                --menu-active: #0d4741;
-                --input-bg: #2c2c2c;
-                --input-text: #f0f0f0;
-                --input-border: #555555;
-                --input-focus-border: #15967a;
-                --table-header-bg: rgba(16,119,92,0.25);
-                --table-row-hover: rgba(255,255,255,0.1);
-                --btn-default-bg: #343a40;
-                --btn-default-color: #f0f0f0;
-                --link-color: #4db6ac;
-                --link-hover-color: #80cbc4;
-                --badge-text: #fff;
-                --success-color: #5cb85c;
-                --danger-color: #ff5252;
-                --warning-color: #ffd740;
-                --info-color: #40c4ff;
-                --text-muted: #aaaaaa;
+            @media (max-width: 768px) {
+                #sidebar {
+                    left: -250px;
+                }
+                #sidebar.active {
+                    left: 0;
+                }
+                #content {
+                    margin-left: 0;
+                }
+                #menu-toggle {
+                    display: block;
+                }
             }
             
-            /* Ajustes para badges en tema oscuro */
-            body.dark-theme .badge {
-                color: #ffffff !important;
+            .card-header, .card-footer {
+                background-color: var(--table-header-bg);
+                border-bottom: 1px solid var(--card-border);
             }
-            
-            body.dark-theme .badge.bg-primary {
-                background-color: #0d6efd !important;
-            }
-            
-            body.dark-theme .badge.bg-success {
-                background-color: #198754 !important;
-            }
-            
-            body.dark-theme .badge.bg-danger {
-                background-color: #dc3545 !important;
-            }
-            
-            body.dark-theme .badge.bg-warning {
-                background-color: #ffc107 !important;
-                color: #212529 !important;
-            }
-            
-            body.dark-theme .badge.bg-info {
-                background-color: #0dcaf0 !important;
-                color: #212529 !important;
-            }
-            
-            body.dark-theme .list-group-item {
+
+            .dropdown-menu {
                 background-color: var(--card-bg);
-                color: var(--text-color);
                 border-color: var(--card-border);
             }
 
-            /* Estilos para íconos en cards */
-            .card-header i {
-                margin-right: 8px;
-                color: var(--primary-color);
-            }
-            
-            /* Estilos para menú lateral oculto/visible */
-            #sidebar.hidden {
-                left: calc(var(--menu-width) * -1);
-            }
-            
-            #content.full-width {
-                margin-left: 0;
-                width: 100%;
-            }
-            
-            .show-sidebar-btn {
-                position: fixed;
-                left: 0;
-                top: 50%;
-                transform: translateY(-50%);
-                background-color: var(--menu-color);
-                color: white;
-                border: none;
-                border-radius: 0 4px 4px 0;
-                padding: 10px 5px;
-                z-index: 900;
-                cursor: pointer;
-                box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-                transition: background-color 0.3s;
-            }
-            
-            .show-sidebar-btn:hover {
-                background-color: var(--primary-color);
-            }
-            
-            .hidden {
-                display: none !important;
-            }
-            
-            .user-actions {
-                display: flex;
-                align-items: center;
-            }
-            
-            .hide-sidebar-btn {
-                background: transparent;
-                color: rgba(255,255,255,0.7);
-                border: none;
-                padding: 3px 6px;
-                margin-right: 8px;
-                cursor: pointer;
-                transition: color 0.3s;
-            }
-            
-            .hide-sidebar-btn:hover {
-                color: white;
-            }
-            
-            .theme-toggle {
-                background: transparent;
-                color: rgba(255,255,255,0.9);
-                border: none;
-                padding: 8px;
-                cursor: pointer;
-                transition: all 0.3s;
-                border-radius: 50%;
-                width: 36px;
-                height: 36px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            
-            .theme-toggle:hover {
-                color: white;
-                background-color: rgba(255,255,255,0.2);
-            }
-            
-            .theme-toggle:focus {
-                outline: none;
-                box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
-            }
-            
-            /* Mejorar legibilidad en menú lateral */
-            .sidebar .menu-item, 
-            .sidebar .user-info,
-            .sidebar .menu-section {
-                font-size: 0.95rem;
-                font-weight: 500;
-                letter-spacing: 0.3px;
-            }
-            
-            .sidebar .user-info strong {
-                font-size: 1.05rem;
-                font-weight: 600;
-            }
-            
-            .sidebar .user-info small {
-                font-size: 0.85rem;
-                opacity: 0.9;
+            .dropdown-item {
+                color: var(--text-color);
             }
 
-            /* Estilos para el icono monetario en sección de cobrador */
-            .menu-section.cobrador i.fas.fa-money-bill {
-                color: #28a745;
+            .dropdown-item:hover {
+                background-color: var(--table-row-hover);
             }
             
-            /* Estilo para íconos de cobrador */
-            .submenu a i.fas.fa-hand-holding-usd {
-                color: #28a745;
+            /* Estilo para los badges en modo oscuro */
+            .dark-theme .badge {
+                color: #e9ecef !important;
+                background-color: #495057 !important;
+                border: 1px solid #6c757d;
             }
+            
+            .dark-theme .bg-success { background-color: #28a745 !important; }
+            .dark-theme .bg-danger { background-color: #dc3545 !important; }
+            .dark-theme .bg-warning { background-color: #ffc107 !important; color: #121212 !important; }
+            .dark-theme .bg-info { background-color: #17a2b8 !important; }
+            .dark-theme .bg-primary { background-color: var(--btn-primary-bg) !important; }
+            
         </style>
     </head>
 <body class="dark-theme">
-        <div id="app">
-        @guest
-            <nav class="navbar navbar-expand-md navbar-dark bg-dark shadow-sm">
-                <div class="container">
-                    <a class="navbar-brand" href="{{ url('/') }}">
-                        {{ config('app.name', 'Prestamos') }}
-                    </a>
-                    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="{{ __('Toggle navigation') }}">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
+    <div id="app">
+        @include('layouts.sidebar')
 
-                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                        <!-- Left Side Of Navbar -->
-                        <ul class="navbar-nav mr-auto">
-
-                        </ul>
-
-                        <!-- Right Side Of Navbar -->
-                        <ul class="navbar-nav ml-auto">
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ route('login') }}">{{ __('Login') }}</a>
-                            </li>
-                            @if (Route::has('register'))
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{{ route('register') }}">{{ __('Register') }}</a>
-                                </li>
-                            @endif
-                        </ul>
-                    </div>
-                </div>
-            </nav>
-
-            <main class="py-4">
+        <div id="content">
+            {{-- @include('layouts.topbar') --}}
+            
+            <main class="py-4 container-fluid">
                 @yield('content')
             </main>
-        @else
-            <!-- Menu toggle button for mobile -->
-            <button id="menu-toggle">
-                <i class="fas fa-bars"></i>
-            </button>
-
-            <!-- Sidebar menu -->
-            <div id="sidebar">
-                <div class="user-info">
-                    <div>
-                        <strong>{{ Auth::user()->name }}</strong><br>
-                        <small>{{ ucfirst(Auth::user()->role ?? 'Usuario') }}</small>
-                    </div>
-                    <div class="user-actions">
-                        <button id="hide-sidebar" class="hide-sidebar-btn" title="Ocultar menú">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <button id="theme-toggle" class="theme-toggle" title="Cambiar tema">
-                            <i class="fas fa-moon"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                @include('layouts.menu')
-            </div>
-
-            <!-- Botón para mostrar el menú cuando está oculto -->
-            <button id="show-sidebar" class="show-sidebar-btn hidden">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-
-            <!-- Main content -->
-            <div id="content">
-                <!-- Mensajes Flash -->
-                @if(session('success'))
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <i class="fas fa-check-circle"></i> {{ session('success') }}
-                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                @endif
-
-                @if(session('error'))
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="fas fa-exclamation-circle"></i> {{ session('error') }}
-                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                @endif
-
-                @if(session('warning'))
-                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                        <i class="fas fa-exclamation-triangle"></i> {{ session('warning') }}
-                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                @endif
-
-                @if(session('info'))
-                    <div class="alert alert-info alert-dismissible fade show" role="alert">
-                        <i class="fas fa-info-circle"></i> {{ session('info') }}
-                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                @endif
-                
-                @yield('admin-section')
-                @yield('content')
-            </div>
-        @endguest
         </div>
+    </div>
 
     <!-- Scripts adicionales -->
         <script>
@@ -970,6 +527,6 @@
                 }, 5000);
             });
         </script>
-        @stack('scripts')
-    </body>
+    @stack('scripts')
+</body>
 </html>

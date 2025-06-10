@@ -23,9 +23,13 @@ class SimulatorController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index($client_id = null)
     {
-        return view('simulator.index');
+        $client = null;
+        if ($client_id) {
+            $client = \App\Models\Client::find($client_id);
+        }
+        return view('simulator.index', compact('client'));
     }
 
     /**
@@ -39,6 +43,7 @@ class SimulatorController extends Controller
             'interest_rate' => 'required|numeric|min:0',
             'payment_frequency' => 'required|in:daily,weekly,biweekly,monthly',
             'loan_type' => 'required|in:personal,pyme',
+            'client_id' => 'nullable|exists:clients,id'
         ]);
 
         $amount = $request->amount;
@@ -46,6 +51,11 @@ class SimulatorController extends Controller
         $interestRate = $request->interest_rate / 100; // Convertir a decimal
         $paymentFrequency = $request->payment_frequency;
         $loanType = $request->loan_type;
+        
+        $client = null;
+        if ($request->filled('client_id')) {
+            $client = \App\Models\Client::find($request->client_id);
+        }
         
         // Ajustar la tasa de interés según el tipo de préstamo
         if ($loanType == 'pyme') {
@@ -78,7 +88,7 @@ class SimulatorController extends Controller
             'total_amount' => $amount + $schedule[$totalPayments - 1]['accumulated_interest'],
         ];
         
-        return view('simulator.result', compact('summary', 'schedule'));
+        return view('simulator.result', compact('summary', 'schedule', 'client'));
     }
     
     /**

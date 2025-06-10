@@ -1090,10 +1090,7 @@ class PymesController extends Controller
                 }
             });
 
-            return redirect()
-                ->route('pymes.solicitudes.show', $request->loan_application_id)
-                ->with('success', 'Análisis de crédito registrado correctamente' . 
-                    ($request->recommendation === 'approve' ? ' y solicitud aprobada' : ''));
+            return redirect()->route('pymes.analisis')->with('success', 'Análisis de crédito guardado correctamente.');
 
         } catch (\Exception $e) {
             \Log::error('Error al guardar análisis: ' . $e->getMessage());

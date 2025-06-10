@@ -192,7 +192,7 @@
                         <tbody>
                             @foreach($ultimosPagos as $pago)
                             <tr>
-                                <td>{{ $pago->cliente }}</td>
+                                <td>{{ $pago->cliente_nombre }} {{ $pago->cliente_apellido }}</td>
                                 <td class="text-right">${{ number_format($pago->monto, 2) }}</td>
                                 <td>{{ \Carbon\Carbon::parse($pago->fecha)->format('d/m/Y') }}</td>
                             </tr>

@@ -219,4 +219,31 @@ class BranchController extends Controller
                 ->with('error', 'Error al eliminar la sucursal: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Muestra el formulario para editar las plantillas de una sucursal.
+     */
+    public function editTemplates(Branch $branch)
+    {
+        return view('branches.templates', compact('branch'));
+    }
+
+    /**
+     * Actualiza las plantillas de una sucursal.
+     */
+    public function updateTemplates(Request $request, Branch $branch)
+    {
+        $request->validate([
+            'contract_template' => 'nullable|string',
+            'voucher_template' => 'nullable|string',
+        ]);
+
+        $branch->update([
+            'contract_template' => $request->contract_template,
+            'voucher_template' => $request->voucher_template,
+        ]);
+
+        return redirect()->route('branches.editTemplates', $branch->id)
+            ->with('success', 'Plantillas actualizadas correctamente.');
+    }
 }

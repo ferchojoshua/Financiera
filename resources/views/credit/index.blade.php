@@ -53,7 +53,7 @@
                     </div>
 
                     <!-- Tabla de créditos -->
-                    <div class="table-container">
+                    <div class="table-responsive">
                         <table class="table table-striped table-hover">
                             <thead>
                                 <tr>
@@ -175,4 +175,26 @@ function confirmDelete(creditId) {
 }
 </script>
 @endpush
+
+@push('styles')
+<style>
+    /* Solo aplicar estos estilos cuando el body tenga la clase dark-theme */
+    body.dark-theme .table-striped>tbody>tr:nth-of-type(odd)>* {
+        background-color: #343a40;
+        color: #f8f9fa;
+    }
+    
+    body.dark-theme .table-hover>tbody>tr:hover>* {
+        background-color: #495057;
+        color: #f8f9fa;
+    }
+    
+    /* Aseguramos que las filas pares también se vean bien en modo oscuro */
+    body.dark-theme .table-striped>tbody>tr:nth-of-type(even)>* {
+        background-color: #212529; /* Un poco más oscuro que las impares para mantener el efecto */
+        color: #f8f9fa;
+    }
+</style>
+@endpush
+
 @endsection 

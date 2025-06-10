@@ -69,6 +69,9 @@
                                                     <a href="{{ route('branches.edit', $branch->id) }}" class="btn btn-sm btn-warning" title="Editar">
                                                         <i class="fa fa-edit"></i>
                                                     </a>
+                                                    <a href="{{ route('branches.editTemplates', $branch->id) }}" class="btn btn-sm btn-primary" title="Editar Plantillas">
+                                                        <i class="fa fa-file-alt"></i>
+                                                    </a>
                                                     <form action="{{ route('branches.destroy', $branch->id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Está seguro de eliminar esta sucursal?');">
                                                         @csrf
                                                         @method('DELETE')

@@ -106,19 +106,29 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-6">
-                                <div class="form-group mb-3">
-                                    <label for="address" class="form-label">Dirección *</label>
-                                    <textarea class="form-control @error('address') is-invalid @enderror" 
-                                              id="address" name="address" rows="2" required>{{ old('address') }}</textarea>
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="address">Dirección Principal</label>
+                                    <textarea class="form-control @error('address') is-invalid @enderror" id="address" name="address" rows="3" required>{{ old('address') }}</textarea>
                                     @error('address')
-                                        <div class="invalid-feedback">{{ $message }}</div>
+                                        <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
                                     @enderror
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Información Personal Adicional -->
+                        <!-- Mapa y Coordenadas -->
+                        <input type="hidden" name="lat" id="lat" value="{{ old('lat') }}">
+                        <input type="hidden" name="lng" id="lng" value="{{ old('lng') }}">
+                        <div class="form-group mt-3">
+                            <label>Ubicación en el Mapa</label>
+                            <div id="map" style="height: 300px; width: 100%; border-radius: 5px; border: 1px solid #ced4da;"></div>
+                            <small class="form-text text-muted">Arrastra el marcador para ajustar la ubicación exacta.</small>
+                        </div>
+
+                        <hr>
+
+                        <h5>Información Personal</h5>
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="form-group mb-3">
@@ -395,116 +405,139 @@
 @endsection
 
 @push('scripts')
+<script src="https://maps.googleapis.com/maps/api/js?key={{ env('GOOGLE_MAPS_API_KEY') }}&callback=initMap&libraries=places&v=weekly" async defer></script>
 <script>
-$(document).ready(function() {
-    // Función para formatear montos en formato de moneda
-    function formatCurrency(amount) {
-        return new Intl.NumberFormat('es-ES', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2
-        }).format(amount);
-    }
-    
-    // Función para actualizar los montos mínimos y máximos
-    function updateAmountLimits() {
-        const selectedOption = $('#credit_type_id option:selected');
-        const minAmount = parseFloat(selectedOption.data('min')) || 0;
-        const maxAmount = parseFloat(selectedOption.data('max')) || 0;
-        const interestRate = parseFloat(selectedOption.data('rate')) || 0;
-        
-        // Actualizar los textos informativos
-        $('#min_amount').text(formatCurrency(minAmount));
-        $('#max_amount').text(formatCurrency(maxAmount));
-        
-        // Actualizar los atributos del campo de monto
-        $('#loan_amount').attr({
-            'min': minAmount,
-            'max': maxAmount,
-            'placeholder': `Entre ${formatCurrency(minAmount)} y ${formatCurrency(maxAmount)}`
+    let map;
+    let marker;
+
+    function initMap() {
+        const defaultLocation = { lat: 13.6929, lng: -89.2182 }; // Coordenadas de San Salvador por defecto
+
+        map = new google.maps.Map(document.getElementById("map"), {
+            center: defaultLocation,
+            zoom: 12,
         });
-        
-        // Mostrar tasa de interés si está disponible
-        if (interestRate > 0) {
-            $('#interest_rate_info').text(`Tasa de interés: ${interestRate}% anual`).show();
-        } else {
-            $('#interest_rate_info').hide();
-        }
-        
-        // Validar el monto actual si hay uno
-        validateAmount();
+
+        marker = new google.maps.Marker({
+            position: defaultLocation,
+            map: map,
+            draggable: true,
+            title: "Ubicación del cliente"
+        });
+
+        // Actualizar campos cuando el marcador se mueve
+        marker.addListener('dragend', function(event) {
+            document.getElementById('lat').value = event.latLng.lat();
+            document.getElementById('lng').value = event.latLng.lng();
+        });
+
+        // Sincronizar el mapa con la dirección (opcional pero recomendado)
+        const addressInput = document.getElementById('address');
+        const autocomplete = new google.maps.places.Autocomplete(addressInput);
+        autocomplete.bindTo('bounds', map);
+
+        autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace();
+            if (place.geometry && place.geometry.location) {
+                map.setCenter(place.geometry.location);
+                marker.setPosition(place.geometry.location);
+                document.getElementById('lat').value = place.geometry.location.lat();
+                document.getElementById('lng').value = place.geometry.location.lng();
+            }
+        });
     }
-    
-    // Función para validar el monto ingresado
-    function validateAmount() {
-        const input = $('#loan_amount');
-        const amount = parseFloat(input.val());
-        const min = parseFloat(input.attr('min'));
-        const max = parseFloat(input.attr('max'));
-        
-        if (amount && (amount < min || amount > max)) {
-            input.addClass('is-invalid');
-            $('#loan_amount_error').text(
-                `El monto debe estar entre ${formatCurrency(min)} y ${formatCurrency(max)}`
-            ).show();
-        } else {
-            input.removeClass('is-invalid');
-            $('#loan_amount_error').hide();
-        }
-    }
-    
-    // Actualizar cuando cambie el tipo de crédito
-    $('#credit_type_id').change(updateAmountLimits);
-    
-    // Validar cuando cambie el monto
-    $('#loan_amount').on('input', validateAmount);
-    
-    // Actualizar al cargar la página
-    updateAmountLimits();
-    
-    // Mostrar/ocultar información del cónyuge
-    $('#civil_status').change(function() {
-        if ($(this).val() === 'casado') {
-            $('#spouse_info').slideDown();
-            $('#spouse_name').prop('required', true);
-        } else {
-            $('#spouse_info').slideUp();
-            $('#spouse_name').prop('required', false);
-        }
-    }).trigger('change');
-    
-    // Calcular promedio semanal y ganancias netas
-    function calculateAverages() {
-        const salesGood = parseFloat($('#sales_good').val()) || 0;
-        const salesBad = parseFloat($('#sales_bad').val()) || 0;
-        
-        // Calcular promedio semanal (asumiendo 6 días buenos y 1 malo por semana)
-        const weeklyAverage = (salesGood * 6 + salesBad) / 7;
-        $('#weekly_average').val(weeklyAverage.toFixed(2));
-        
-        // Calcular ganancias netas (asumiendo 30% de margen)
-        const netProfit = weeklyAverage * 0.30;
-        $('#net_profit').val(netProfit.toFixed(2));
-    }
-    
-    // Calcular cuando cambien las ventas
-    $('#sales_good, #sales_bad').on('input', calculateAverages);
-    
-    // Validar el formulario antes de enviar
-    $('#clientForm').on('submit', function(e) {
-        const loanAmount = $('#loan_amount');
-        if (loanAmount.val()) {
-            const amount = parseFloat(loanAmount.val());
-            const min = parseFloat(loanAmount.attr('min'));
-            const max = parseFloat(loanAmount.attr('max'));
-            
-            if (amount < min || amount > max) {
-                e.preventDefault();
-                alert(`El monto del préstamo debe estar entre ${formatCurrency(min)} y ${formatCurrency(max)}`);
-                loanAmount.focus();
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Lógica de Estado Civil y Cónyuge ---
+        const civilStatusSelect = document.getElementById('civil_status');
+        const spouseInfoDiv = document.getElementById('spouse_info');
+
+        function toggleSpouseInfo() {
+            const selectedStatus = civilStatusSelect.value;
+            if (selectedStatus === 'casado' || selectedStatus === 'union_libre') {
+                spouseInfoDiv.style.display = 'block';
+            } else {
+                spouseInfoDiv.style.display = 'none';
             }
         }
+
+        civilStatusSelect.addEventListener('change', toggleSpouseInfo);
+        toggleSpouseInfo(); // Ejecutar al cargar la página por si hay valores antiguos
+
+        // --- Lógica de Cálculo de Negocio ---
+        const salesGoodInput = document.getElementById('sales_good');
+        const salesBadInput = document.getElementById('sales_bad');
+        const weeklyAverageInput = document.getElementById('weekly_average');
+        const netProfitInput = document.getElementById('net_profit');
+
+        function calculateBusinessMetrics() {
+            const good = parseFloat(salesGoodInput.value) || 0;
+            const bad = parseFloat(salesBadInput.value) || 0;
+
+            // Asumimos 6 días de trabajo a la semana para el promedio
+            const average = ((good + bad) / 2) * 6;
+            weeklyAverageInput.value = average.toFixed(2);
+
+            // Asumimos una ganancia neta del 35% del promedio semanal.
+            // Este valor puede ser ajustado según la lógica de negocio.
+            const profit = average * 0.35;
+            netProfitInput.value = profit.toFixed(2);
+        }
+
+        salesGoodInput.addEventListener('input', calculateBusinessMetrics);
+        salesBadInput.addEventListener('input', calculateBusinessMetrics);
+        calculateBusinessMetrics();
+
+        // --- Lógica de Tipo de Crédito y Validación de Monto ---
+        const creditTypeSelect = document.getElementById('credit_type_id');
+        const loanAmountInput = document.getElementById('loan_amount');
+        const minAmountSpan = document.getElementById('min_amount');
+        const maxAmountSpan = document.getElementById('max_amount');
+        const interestRateInfo = document.getElementById('interest_rate_info');
+        const loanAmountErrorDiv = document.getElementById('loan_amount_error');
+
+        function updateCreditInfo() {
+            const selectedOption = creditTypeSelect.options[creditTypeSelect.selectedIndex];
+            const min = parseFloat(selectedOption.getAttribute('data-min')) || 0;
+            const max = parseFloat(selectedOption.getAttribute('data-max')) || 0;
+            const rate = parseFloat(selectedOption.getAttribute('data-rate')) || 0;
+
+            minAmountSpan.textContent = min.toLocaleString('es-CO');
+            maxAmountSpan.textContent = max.toLocaleString('es-CO');
+
+            if (rate > 0) {
+                interestRateInfo.textContent = `Tasa de interés: ${rate}%`;
+            } else {
+                interestRateInfo.textContent = '';
+            }
+            
+            validateLoanAmount();
+        }
+
+        function validateLoanAmount() {
+            const selectedOption = creditTypeSelect.options[creditTypeSelect.selectedIndex];
+            if (!selectedOption || !selectedOption.value) {
+                loanAmountInput.classList.remove('is-invalid');
+                loanAmountErrorDiv.textContent = '';
+                return;
+            }
+
+            const min = parseFloat(selectedOption.getAttribute('data-min')) || 0;
+            const max = parseFloat(selectedOption.getAttribute('data-max')) || 0;
+            const amount = parseFloat(loanAmountInput.value);
+
+            if (amount < min || amount > max) {
+                loanAmountInput.classList.add('is-invalid');
+                loanAmountErrorDiv.textContent = `El monto debe estar entre $${min.toLocaleString('es-CO')} y $${max.toLocaleString('es-CO')}.`;
+            } else {
+                loanAmountInput.classList.remove('is-invalid');
+                loanAmountErrorDiv.textContent = '';
+            }
+        }
+
+        creditTypeSelect.addEventListener('change', updateCreditInfo);
+        loanAmountInput.addEventListener('input', validateLoanAmount);
+        updateCreditInfo(); // Ejecutar al cargar la página
     });
-});
 </script>
 @endpush

@@ -21,11 +21,29 @@ class CreditController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        $credits = Credit::with(['user', 'agent', 'approver'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+        $query = Credit::with(['client', 'agent', 'approver'])->latest();
+
+        // Aplicar filtro por estado
+        if ($request->filled('status') && $request->status != 'all') {
+            $query->where('status', $request->status);
+        }
+
+        // Aplicar filtro de búsqueda
+        if ($request->filled('search')) {
+            $searchTerm = $request->search;
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('amount', 'like', "%{$searchTerm}%")
+                  ->orWhereHas('client', function($clientQuery) use ($searchTerm) {
+                      $clientQuery->where('name', 'like', "%{$searchTerm}%")
+                                  ->orWhere('last_name', 'like', "%{$searchTerm}%")
+                                  ->orWhere('nit', 'like', "%{$searchTerm}%");
+                  });
+            });
+        }
+
+        $credits = $query->paginate(10)->withQueryString();
             
         return view('credit.index', compact('credits'));
     }
@@ -37,6 +55,10 @@ class CreditController extends Controller
      */
     public function create()
     {
+        if (!auth()->user()->hasModuleAccess('creditos', 'create')) {
+            return redirect()->route('home')->with('error', 'No tienes permisos para crear créditos.');
+        }
+
         // Obtener todos los clientes para seleccionar
         $clients = User::where('role', 'user')
             ->orderBy('name')
@@ -64,6 +86,10 @@ class CreditController extends Controller
      */
     public function store(Request $request)
     {
+        if (!auth()->user()->hasModuleAccess('creditos', 'create')) {
+            return back()->with('error', 'No tienes permisos para crear créditos.');
+        }
+        
         $request->validate([
             'client_id' => 'required|exists:clients,id',
             'amount' => 'required|numeric|min:0',
@@ -146,7 +172,8 @@ class CreditController extends Controller
         
         $clients = Client::orderBy('name')->get();
             
-        $wallets = Wallet::where('status', 'activa')
+        $wallets = Wallet::with('user')
+            ->whereIn('status', ['activa', 'active', 'completed'])
             ->get();
             
         return view('credit.edit', compact('credit', 'clients', 'wallets'));
@@ -194,11 +221,11 @@ class CreditController extends Controller
             $credit->status = $request->status;
             
             // Si se modificó el crédito, volver a poner en pendiente de aprobación
-            if ($credit->isDirty() && $credit->approval_status === 'aprobado') {
-                $credit->approval_status = 'pendiente';
+            if ($credit->isDirty() && $credit->status === 'aprobado') {
+                $credit->status = 'pendiente';
                 $credit->approved_by = null;
-                $credit->approval_date = null;
-                $credit->approval_notes = null;
+                $credit->approved_at = null;
+                $credit->approved_notes = null;
                 
                 // Notificar a los supervisores sobre la modificación
                 $this->notifySupervisorsAboutCredit($credit, true);
@@ -263,7 +290,7 @@ class CreditController extends Controller
         }
         
         $credits = Credit::with(['user', 'agent'])
-            ->where('approval_status', 'pendiente')
+            ->where('status', 'pendiente')
             ->orderBy('created_at', 'desc')
             ->paginate(10);
             
@@ -284,7 +311,7 @@ class CreditController extends Controller
         $credit = Credit::with(['user', 'agent', 'wallet'])
             ->findOrFail($id);
             
-        if ($credit->approval_status !== 'pendiente') {
+        if ($credit->status !== 'pendiente') {
             return redirect()->route('credit.index')
                 ->with('error', 'Este crédito ya ha sido procesado.');
         }
@@ -313,15 +340,15 @@ class CreditController extends Controller
             
             $credit = Credit::with('user', 'agent')->findOrFail($id);
             
-            if ($credit->approval_status !== 'pendiente') {
+            if ($credit->status !== 'pendiente') {
                 return redirect()->route('credit.pending_approval')
                     ->with('error', 'Este crédito ya ha sido procesado.');
             }
             
-            $credit->approval_status = $request->decision;
+            $credit->status = $request->decision;
             $credit->approved_by = Auth::id();
-            $credit->approval_date = now();
-            $credit->approval_notes = $request->notes;
+            $credit->approved_at = now();
+            $credit->approved_notes = $request->notes;
             
             // Si fue rechazado, cambiar el estado del crédito
             if ($request->decision === 'rechazado') {
@@ -415,5 +442,81 @@ class CreditController extends Controller
             ->get();
             
         return view('credits.create', compact('client', 'routes'));
+    }
+
+    /**
+     * Muestra la página para gestionar los tipos de cliente.
+     */
+    public function types()
+    {
+        if (!auth()->user()->hasModuleAccess('clientes', 'view')) { // O un permiso más específico si existe
+            return redirect()->route('home')->with('error', 'No tienes permisos para gestionar tipos de cliente.');
+        }
+
+        $types = DB::table('client_types')->orderBy('name')->get();
+
+        return view('client.types', compact('types'));
+    }
+
+    /**
+     * Almacena un nuevo tipo de cliente.
+     */
+    public function storeType(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255|unique:client_types',
+            'description' => 'nullable|string',
+            'color' => 'required|string|max:7',
+        ]);
+
+        DB::table('client_types')->insert([
+            'name' => $request->name,
+            'description' => $request->description,
+            'color' => $request->color,
+            'is_active' => $request->has('is_active'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Tipo de cliente creado correctamente.');
+    }
+
+    /**
+     * Actualiza un tipo de cliente existente.
+     */
+    public function updateType(Request $request, $id)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255|unique:client_types,name,' . $id,
+            'description' => 'nullable|string',
+            'color' => 'required|string|max:7',
+        ]);
+
+        DB::table('client_types')->where('id', $id)->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'color' => $request->color,
+            'is_active' => $request->has('is_active'),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Tipo de cliente actualizado correctamente.');
+    }
+
+    /**
+     * Elimina un tipo de cliente.
+     */
+    public function destroyType($id)
+    {
+        // Opcional: Verificar si el tipo está en uso antes de borrar
+        $is_in_use = Client::where('client_type_id', $id)->exists();
+
+        if ($is_in_use) {
+            return response()->json(['error' => 'No se puede eliminar el tipo porque está en uso.'], 422);
+        }
+
+        DB::table('client_types')->where('id', $id)->delete();
+
+        return response()->json(['success' => 'Tipo de cliente eliminado correctamente.']);
     }
 }

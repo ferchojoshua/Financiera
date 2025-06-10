@@ -4,6 +4,10 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use App\Console\Commands\ManagePermissions;
+use App\Console\Commands\CleanDuplicatePermissions;
+use App\Console\Commands\TestRolePermissions;
+use App\Console\Commands\GrantPermission;
 
 class Kernel extends ConsoleKernel
 {
@@ -16,12 +20,13 @@ class Kernel extends ConsoleKernel
         Commands\CreateBasicRoles::class,
         Commands\InsertRoleModulePermissions::class,
         Commands\CreateAdminWallets::class,
-        Commands\ManagePermissions::class,
+        ManagePermissions::class,
         \App\Console\Commands\CreatePaymentsTable::class,
         Commands\UpdateModulePermissions::class,
         Commands\AssignSuperAdminPermissions::class,
-        Commands\TestRolePermissions::class,
-        Commands\CleanDuplicatePermissions::class,
+        TestRolePermissions::class,
+        CleanDuplicatePermissions::class,
+        GrantPermission::class,
     ];
 
     /**

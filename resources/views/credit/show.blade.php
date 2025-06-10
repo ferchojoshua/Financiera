@@ -76,7 +76,7 @@
                                                 @elseif($credit->status == 'cancelled')
                                                     <span class="badge bg-danger">Cancelado</span>
                                                 @else
-                                                    <span class="badge bg-secondary">{{ $credit->status }}</span>
+                                                    <span class="badge bg-secondary">{{ ucfirst($credit->status) }}</span>
                                                 @endif
                                             </td>
                                         </tr>
@@ -98,19 +98,21 @@
                                         <tr>
                                             <th>Estado:</th>
                                             <td>
-                                                @if($credit->approval_status == 'pendiente')
-                                                    <span class="badge bg-warning">Pendiente de Aprobación</span>
-                                                @elseif($credit->approval_status == 'aprobado')
+                                                @if($credit->status == 'pendiente')
+                                                    <span class="badge bg-warning text-dark">Pendiente de Aprobación</span>
+                                                @elseif($credit->status == 'aprobado')
                                                     <span class="badge bg-success">Aprobado</span>
-                                                @elseif($credit->approval_status == 'rechazado')
+                                                @elseif($credit->status == 'rechazado')
                                                     <span class="badge bg-danger">Rechazado</span>
+                                                @else
+                                                    <span class="badge bg-secondary">{{ ucfirst($credit->status) }}</span>
                                                 @endif
                                             </td>
                                         </tr>
-                                        @if($credit->approval_status != 'pendiente')
+                                        @if($credit->status != 'pendiente')
                                             <tr>
-                                                <th>Aprobado/Rechazado por:</th>
-                                                <td>{{ $credit->approver->name ?? 'No disponible' }}</td>
+                                                <th>Procesado por:</th>
+                                                <td>{{ $credit->approver->name ?? 'N/A' }}</td>
                                             </tr>
                                             <tr>
                                                 <th>Fecha:</th>
@@ -125,10 +127,10 @@
                                         @endif
                                     </table>
                                     
-                                    @if($credit->approval_status == 'pendiente' && (Auth::user()->hasRole('supervisor') || Auth::user()->hasRole('admin')))
+                                    @if($credit->status == 'pendiente' && (Auth::user()->hasRole('supervisor') || Auth::user()->hasRole('admin')))
                                         <div class="mt-3">
                                             <a href="{{ route('credit.approval.form', $credit->id) }}" class="btn btn-primary">
-                                                <i class="fa fa-clipboard-check"></i> Revisar Aprobación
+                                                <i class="fas fa-check-circle"></i> Procesar Solicitud
                                             </a>
                                         </div>
                                     @endif

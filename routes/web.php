@@ -128,17 +128,11 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('client')->name('client.')->middleware(['auth'])->group(function() {
         Route::get('/', 'ClientController@index')->name('index');
         Route::get('/create', 'ClientController@create')->name('create');
-        Route::post('/store', 'ClientController@store')->name('store');
+        Route::post('/', 'ClientController@store')->name('store');
         Route::get('/{id}', 'ClientController@show')->name('show');
         Route::get('/{id}/edit', 'ClientController@edit')->name('edit');
         Route::put('/{id}', 'ClientController@update')->name('update');
         Route::delete('/{id}', 'ClientController@destroy')->name('destroy');
-        
-        // Tipos de cliente
-        Route::get('/types', 'ClientController@types')->name('types');
-        Route::post('/types', 'ClientController@storeType')->name('types.store');
-        Route::put('/types/{id}', 'ClientController@updateType')->name('types.update');
-        Route::delete('/types/{id}', 'ClientController@destroyType')->name('types.destroy');
         
         // Filtros y cambio de sucursal
         Route::get('/filter', 'ClientController@filter')->name('filter');
@@ -158,21 +152,16 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{id}/reactivate', 'ClientController@reactivate')->name('reactivate');
         Route::get('/export/{format}', 'ClientController@export')->name('export');
         
-        // Tipos de cliente
-        Route::get('/types', 'ClientController@types')->name('types');
-        Route::post('/types', 'ClientController@storeType')->name('types.store');
-        Route::put('/types/{id}', 'ClientController@updateType')->name('types.update');
-        Route::delete('/types/{id}', 'ClientController@destroyType')->name('types.destroy');
-        
         // Filtros y cambio de sucursal
         Route::get('/filter', 'ClientController@filter')->name('filter');
         Route::get('/change-branch', 'ClientController@changeBranch')->name('change_branch');
+        
+        // Rutas de reportes de clientes
+        Route::prefix('reports')->name('reports.clients.')->group(function () {
+            Route::get('/performance', 'ClientController@performance')->name('performance');
+            Route::get('/report', 'ClientController@report')->name('report');
+        });
     });
-    
-    // Reportes de clientes
-    Route::get('clients/report', 'ClientController@report')->name('clients.report');
-    Route::get('clients/performance', 'ClientController@performance')->name('clients.performance');
-    Route::post('clients/change-branch', 'ClientController@changeBranch')->name('clients.change_branch');
     
     // Rutas de Wallet
     Route::resource('wallets', 'WalletController');
@@ -247,6 +236,11 @@ Route::middleware(['auth'])->group(function () {
     // Rutas de transacción
     Route::resource('transaction', 'TransactionController');
     
+    // Rutas de sucursales
+    Route::resource('branches', 'BranchController');
+    Route::get('branches/{branch}/templates', 'BranchController@editTemplates')->name('branches.editTemplates');
+    Route::put('branches/{branch}/templates', 'BranchController@updateTemplates')->name('branches.updateTemplates');
+    
     // Rutas de supervisión
     Route::prefix('supervisor')->name('supervisor.')->group(function () {
         Route::get('/', 'SupervisorController@index')->name('index');
@@ -280,6 +274,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('route/{route}/assign-credits', 'RouteController@save_assign_credits')->name('routes.save_assign_credits');
     Route::post('routes/change-branch', 'RouteController@changeBranch')->name('routes.change_branch');
     
+    // Rutas de reportes de clientes
+    Route::prefix('reports/clients')->name('reports.clients.')->group(function () {
+        Route::get('/performance', 'ClientController@performance')->name('performance');
+        Route::get('/report', 'ClientController@report')->name('report');
+    });
     
     // Rutas de estadísticas
     Route::prefix('reports')->name('reports.')->group(function () {
@@ -288,7 +287,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/disbursements', 'ReportController@disbursements')->name('disbursements');
         Route::get('/active', 'ReportController@active')->name('active');
         Route::get('/overdue', 'ReportController@overdue')->name('overdue');
-        Route::get('/to_cancel', 'ReportController@toCancel')->name('to_cancel');
+        Route::get('/to_cancel', 'ReportController@cancelled')->name('to_cancel');
         Route::get('/monthly_close', 'ReportController@monthlyClose')->name('monthly_close');
         Route::get('/recovery_and_disbursements', 'ReportController@recoveryAndDisbursements')->name('recovery_and_disbursements');
         Route::get('/export/{type}/{format}', 'ReportController@export')->name('export');

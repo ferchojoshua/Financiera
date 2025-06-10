@@ -111,15 +111,28 @@
                             
                             <div class="col-md-12">
                                 <div class="form-group">
-                                    <label for="address">Dirección Completa *</label>
-                                    <textarea class="form-control @error('address') is-invalid @enderror" 
-                                              id="address" name="address" rows="2" required>{{ old('address', $client->address) }}</textarea>
+                                    <label for="address">Dirección Principal</label>
+                                    <textarea class="form-control @error('address') is-invalid @enderror" id="address" name="address" rows="3" required>{{ old('address', $client->address) }}</textarea>
                                     @error('address')
-                                        <div class="invalid-feedback">{{ $message }}</div>
+                                        <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
                                     @enderror
                                 </div>
                             </div>
-                            
+                        </div>
+
+                        <!-- Mapa y Coordenadas -->
+                        <input type="hidden" name="lat" id="lat" value="{{ old('lat', $client->lat) }}">
+                        <input type="hidden" name="lng" id="lng" value="{{ old('lng', $client->lng) }}">
+                        <div class="form-group mt-3">
+                            <label>Ubicación en el Mapa</label>
+                            <div id="map" style="height: 300px; width: 100%; border-radius: 5px; border: 1px solid #ced4da;"></div>
+                            <small class="form-text text-muted">Arrastra el marcador para ajustar la ubicación exacta.</small>
+                        </div>
+
+                        <hr>
+
+                        <h5>Información Personal</h5>
+                        <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label for="city">Ciudad</label>
@@ -450,6 +463,62 @@
 @endsection
 
 @push('scripts')
+<script src="https://maps.googleapis.com/maps/api/js?key={{ env('GOOGLE_MAPS_API_KEY') }}&callback=initMap&libraries=places&v=weekly" async defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Tu script existente para el formulario de edición...
+
+    // --- INICIO SCRIPT DE MAPA ---
+    let map;
+    let marker;
+
+    function initMap() {
+        const latInput = document.getElementById('lat');
+        const lngInput = document.getElementById('lng');
+        const defaultLocation = { lat: 13.6929, lng: -89.2182 }; // San Salvador por defecto
+
+        let initialLat = parseFloat(latInput.value);
+        let initialLng = parseFloat(lngInput.value);
+
+        const initialLocation = !isNaN(initialLat) && !isNaN(initialLng) && initialLat != 0 ? { lat: initialLat, lng: initialLng } : defaultLocation;
+
+        map = new google.maps.Map(document.getElementById("map"), {
+            center: initialLocation,
+            zoom: 15,
+        });
+
+        marker = new google.maps.Marker({
+            position: initialLocation,
+            map: map,
+            draggable: true,
+            title: "Ubicación del cliente"
+        });
+
+        marker.addListener('dragend', function(event) {
+            latInput.value = event.latLng.lat();
+            lngInput.value = event.latLng.lng();
+        });
+
+        const addressInput = document.getElementById('address');
+        const autocomplete = new google.maps.places.Autocomplete(addressInput);
+        autocomplete.bindTo('bounds', map);
+
+        autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace();
+            if (place.geometry && place.geometry.location) {
+                map.setCenter(place.geometry.location);
+                marker.setPosition(place.geometry.location);
+                latInput.value = place.geometry.location.lat();
+                lngInput.value = place.geometry.location.lng();
+            }
+        });
+    }
+
+    // Asegurarse de que initMap esté disponible globalmente para el callback de Google Maps
+    window.initMap = initMap;
+});
+</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Mostrar/ocultar información del cónyuge según estado civil

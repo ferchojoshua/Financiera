@@ -60,7 +60,9 @@ class Client extends Model
         'is_active',
         'status',
         'blacklisted',
-        'blacklist_reason'
+        'blacklist_reason',
+        'lat',
+        'lng'
     ];
 
     /**
@@ -80,7 +82,9 @@ class Client extends Model
         'sales_bad' => 'decimal:2',
         'weekly_average' => 'decimal:2',
         'net_profit' => 'decimal:2',
-        'business_time' => 'integer'
+        'business_time' => 'integer',
+        'lat' => 'decimal:7',
+        'lng' => 'decimal:7'
     ];
 
     /**

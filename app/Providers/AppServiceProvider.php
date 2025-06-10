@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\DB;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -48,9 +49,16 @@ class AppServiceProvider extends ServiceProvider
         
         // Interceptar la renderización de vistas para clientes
         View::composer('*', function ($view) {
+            // Inyectar el contador de créditos pendientes en todas las vistas
+            if (Auth::check() && (Auth::user()->hasRole('supervisor') || Auth::user()->hasRole('admin'))) {
+                $pending_credits_count = DB::table('credit')->where('status', 'pendiente')->count();
+            } else {
+                $pending_credits_count = 0;
+            }
+            $view->with('pending_credits_count', $pending_credits_count);
+
+            // Mantener la lógica existente para forzar layout
             $viewName = $view->getName();
-            
-            // Si es una vista de clientes, forzar el uso del layout master
             if (strpos($viewName, 'clients.') === 0) {
                 $view->with('_layout', 'layouts.master');
             }

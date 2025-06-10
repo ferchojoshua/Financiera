@@ -77,7 +77,29 @@ class CollectionActionController extends Controller
      */
     public function create()
     {
-        return view('collection.actions.create');
+        // Obtener todos los créditos activos para el selector
+        $credits = Credit::where('status', 'active')
+            ->with('client') // Cargar la relación con el cliente
+            ->get()
+            ->map(function ($credit) {
+                // Formatear el texto para el selector
+                return [
+                    'id' => $credit->id,
+                    'text' => "ID: {$credit->id} - {$credit->client->name} {$credit->client->last_name} - Monto: \${$credit->amount}"
+                ];
+            });
+
+        // Tipos de acción de cobranza
+        $actionTypes = [
+            'call' => 'Llamada Telefónica',
+            'visit' => 'Visita en Persona',
+            'sms' => 'Mensaje de Texto (SMS)',
+            'email' => 'Correo Electrónico',
+            'payment_agreement' => 'Acuerdo de Pago',
+            'legal' => 'Acción Legal'
+        ];
+        
+        return view('collection.actions.create', compact('credits', 'actionTypes'));
     }
     
     /**

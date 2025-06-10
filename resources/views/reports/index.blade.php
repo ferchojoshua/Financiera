@@ -116,7 +116,7 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="list-group">
-                                        <a href="{{ route('clients.report') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                        <a href="{{ route('reports.clients.report') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                                             <div>
                                                 <i class="fa fa-users text-primary mr-2"></i>
                                                 Clientes por Categoría
@@ -126,7 +126,7 @@
                                                 <i class="fa fa-arrow-right"></i>
                                             </span>
                                         </a>
-                                        <a href="{{ route('clients.performance') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                        <a href="{{ route('reports.clients.performance') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                                             <div>
                                                 <i class="fa fa-medal text-warning mr-2"></i>
                                                 Desempeño de Clientes

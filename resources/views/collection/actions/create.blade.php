@@ -34,9 +34,9 @@
                                 <label for="credit_id">Crédito <span class="text-danger">*</span></label>
                                 <select name="credit_id" id="credit_id" class="form-control @error('credit_id') is-invalid @enderror" required>
                                     <option value="">Seleccionar crédito</option>
-                                    @foreach(\App\Models\Credit::where('status', 'active')->with('user')->get() as $credit)
-                                        <option value="{{ $credit->id }}" {{ old('credit_id', request('credit_id')) == $credit->id ? 'selected' : '' }}>
-                                            #{{ $credit->id }} - {{ $credit->user->name ?? 'Cliente sin nombre' }} - ${{ number_format($credit->amount_neto, 2) }}
+                                    @foreach($credits as $credit)
+                                        <option value="{{ $credit['id'] }}" {{ old('credit_id', request('credit_id')) == $credit['id'] ? 'selected' : '' }}>
+                                            {{ $credit['text'] }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -49,11 +49,9 @@
                                 <label for="action_type">Tipo de Acción <span class="text-danger">*</span></label>
                                 <select name="action_type" id="action_type" class="form-control @error('action_type') is-invalid @enderror" required>
                                     <option value="">Seleccionar tipo</option>
-                                    <option value="llamada" {{ old('action_type') == 'llamada' ? 'selected' : '' }}>Llamada telefónica</option>
-                                    <option value="visita" {{ old('action_type') == 'visita' ? 'selected' : '' }}>Visita presencial</option>
-                                    <option value="mensaje" {{ old('action_type') == 'mensaje' ? 'selected' : '' }}>Mensaje de texto</option>
-                                    <option value="acuerdo" {{ old('action_type') == 'acuerdo' ? 'selected' : '' }}>Acuerdo de pago</option>
-                                    <option value="otro" {{ old('action_type') == 'otro' ? 'selected' : '' }}>Otro</option>
+                                    @foreach($actionTypes as $key => $value)
+                                        <option value="{{ $key }}" {{ old('action_type') == $key ? 'selected' : '' }}>{{ $value }}</option>
+                                    @endforeach
                                 </select>
                                 @error('action_type')
                                     <div class="invalid-feedback">{{ $message }}</div>

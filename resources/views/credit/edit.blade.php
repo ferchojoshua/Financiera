@@ -32,7 +32,12 @@
                                 <select name="id_wallet" id="id_wallet" class="form-control" required>
                                      @foreach($wallets as $wallet)
                                         <option value="{{ $wallet->id }}" {{ $credit->id_wallet == $wallet->id ? 'selected' : '' }}>
-                                            {{ $wallet->name }}
+                                            Billetera #{{ $wallet->id }} 
+                                            @if($wallet->user)
+                                                - ({{ $wallet->user->name }})
+                                            @elseif($wallet->description)
+                                                - ({{ $wallet->description }})
+                                            @endif
                                         </option>
                                     @endforeach
                                 </select>

@@ -106,13 +106,12 @@
 <script>
     let map;
     let markers = {};
-    
     // Inicializar el mapa
     function initMap() {
         // Centrar en México por defecto
         map = new google.maps.Map(document.getElementById('mapa'), {
-            center: {lat: 23.6345, lng: -102.5528},
-            zoom: 5
+            center: {lat: 12.4379, lng: -86.8780},
+            zoom: 13
         });
         
         // Cargar todas las ubicaciones

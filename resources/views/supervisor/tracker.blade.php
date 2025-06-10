@@ -210,4 +210,19 @@
 </script>
 @endsection
 @endif
-@endsection 
+@endsection
+
+@push('styles')
+<style>
+    .table-striped>tbody>tr:nth-of-type(odd)>*,
+    .table-striped>tbody>tr:nth-of-type(even)>* {
+        background-color: #212529 !important;
+        color: white !important;
+    }
+
+    .table-hover>tbody>tr:hover>* {
+        background-color: #343a40 !important;
+        color: white !important;
+    }
+</style>
+@endpush 
